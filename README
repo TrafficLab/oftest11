@@ -1,0 +1,27 @@
+This package contains two complementary software components:
+
+* OFTest is an OpenFlow switch regression testing suite.
+        See README.oftest for details
+    
+
+* ofps is a reference OpenFlow switch implemented in python
+        See README.ofps for details
+
+These components are used to mutually validate each other and thus they
+are packaged together.
+
+
+Quick start:
+
+# create and install the oftest.egg into system's
+#       python site-package dir
+cd tools/munger
+sudo make install       
+
+# start ofps in foreground
+cd tests
+sudo ./run_switch.py
+
+# start oftest (likely in new window)
+cd tests
+sudo ./oft --verbose
