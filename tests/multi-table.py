@@ -61,6 +61,7 @@ class TwoTable1(basic.SimpleDataPlane):
 
         # Set up first match
         match = ofp.ofp_match()
+        match.length = ofp.OFPMT_STANDARD_LENGTH
         testutils.wildcard_all_set(match)
         match.wildcards -= ofp.OFPFW_DL_TYPE
         match.nw_src_mask = 0 # Match nw_src
@@ -86,10 +87,12 @@ class TwoTable1(basic.SimpleDataPlane):
 
         # Set up second match
         match = ofp.ofp_match()
+        match.length = ofp.OFPMT_STANDARD_LENGTH
         testutils.wildcard_all_set(match)
         match.wildcards -= ofp.OFPFW_DL_TYPE
         match.wildcards -= ofp.OFPFW_TP_SRC
         match.dl_type = 0x800
+        match.nw_proto = 6 # TCP
         match.tp_src = 80
         act = action.action_output()
         act.port = of_ports[1]
@@ -134,6 +137,7 @@ def make_match(dl_type=MT_TEST_DL_TYPE, ip_src=MT_TEST_IP):
     Make matching entry template
     """
     match = ofp.ofp_match()
+    match.length = ofp.OFPMT_STANDARD_LENGTH
     testutils.wildcard_all_set(match)
     match.wildcards -= ofp.OFPFW_DL_TYPE
     match.nw_src = parse.parse_ip(ip_src)
@@ -252,10 +256,12 @@ class MultiTableGoto(basic.SimpleDataPlane):
 
         # Set up third match
         match = ofp.ofp_match()
+        match.length = ofp.OFPMT_STANDARD_LENGTH
         testutils.wildcard_all_set(match)
         match.wildcards -= ofp.OFPFW_DL_TYPE
         match.wildcards -= ofp.OFPFW_TP_SRC
         match.dl_type = MT_TEST_DL_TYPE
+        match.nw_proto = 6 #TCP
         match.tp_src = 80
         write_output(self, third_table, of_ports[1], match=match)
 

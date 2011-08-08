@@ -246,7 +246,7 @@ enum ofp_port_features {
     OFPPF_40GB_FD    = 1 << 7,  /* 40 Gb full-duplex rate support. */
     OFPPF_100GB_FD   = 1 << 8,  /* 100 Gb full-duplex rate support. */
     OFPPF_1TB_FD     = 1 << 9,  /* 1 Tb full-duplex rate support. */
-    OFPPF_LUDICROUS  = 1 << 10, /* Ludicrous rate either full or half duplex */
+    OFPPF_OTHER      = 1 << 10, /* Other rate, not in the list. */
 
     OFPPF_COPPER     = 1 << 11, /* Copper medium. */
     OFPPF_FIBER      = 1 << 12, /* Fiber medium. */
@@ -559,13 +559,13 @@ struct ofp_packet_out {
     uint32_t buffer_id;           /* ID assigned by datapath (-1 if none). */
     uint32_t in_port;             /* Packet's input port or OFPP_CONTROLLER. */
     uint16_t actions_len;         /* Size of action array in bytes. */
-    uint8_t pad[2];
+    uint8_t pad[6];
     struct ofp_action_header actions[0]; /* Action list. */
     /* uint8_t data[0]; */        /* Packet data.  The length is inferred
                                      from the length field in the header.
                                      (Only meaningful if buffer_id == -1.) */
 };
-OFP_ASSERT(sizeof(struct ofp_packet_out) == 20);
+OFP_ASSERT(sizeof(struct ofp_packet_out) == 24);
 
 enum ofp_flow_mod_command {
     OFPFC_ADD,              /* New flow. */
@@ -628,16 +628,6 @@ enum ofp_vlan_id {
 };
 /* Define for compatibility */
 #define OFP_VLAN_NONE      OFPVID_NONE
-
-/* The MPLS label is 20-bits, so we can use the entire 24/32 bits to indicate
- * special conditions.
- */
-enum ofp_mpls_label {
-    OFPML_ANY  = 0xfffffe, /* Indicate that a MPLS label is set but don't care
-                              about it's value. Note: only valid when
-                              specifying the MPLS tag in a match */
-    OFPML_NONE = 0xffffff, /* No MPLS tag was set. */
-};
 
 /* The match type indicates the match structure (set of fields that compose the
  * match) in use. The match type is placed in the type field at the beginning
@@ -889,12 +879,14 @@ enum ofp_error_type {
     OFPET_HELLO_FAILED,         /* Hello protocol failed. */
     OFPET_BAD_REQUEST,          /* Request was not understood. */
     OFPET_BAD_ACTION,           /* Error in action description. */
+    OFPET_BAD_INSTRUCTION,      /* Error in instruction list. */
+    OFPET_BAD_MATCH,            /* Error in match. */
     OFPET_FLOW_MOD_FAILED,      /* Problem modifying flow entry. */
     OFPET_GROUP_MOD_FAILED,     /* Problem modifying group entry. */
     OFPET_PORT_MOD_FAILED,      /* Port mod request failed. */
     OFPET_TABLE_MOD_FAILED,     /* Table mod request failed. */
     OFPET_QUEUE_OP_FAILED,      /* Queue operation failed. */
-    OFPET_SWITCH_CONFIG_FAILED  /* Switch config request failed. */
+    OFPET_SWITCH_CONFIG_FAILED, /* Switch config request failed. */
 };
 
 /* ofp_error_msg 'code' values for OFPET_HELLO_FAILED.  'data' contains an
@@ -938,6 +930,41 @@ enum ofp_bad_action_code {
     OFPBAC_MATCH_INCONSISTENT, /* Action can't apply for this match. */
     OFPBAC_UNSUPPORTED_ORDER,  /* Action order is unsupported for the action
 				  list in an Apply-Actions instruction */
+    OFPBAC_BAD_TAG,            /* Actions uses an unsupported
+                                  tag/encap. */
+};
+
+/* ofp_error_msg 'code' values for OFPET_BAD_INSTRUCTION.  'data' contains at least
+ * the first 64 bytes of the failed request. */
+enum ofp_bad_instruction_code {
+    OFPBIC_UNKNOWN_INST,       /* Unknown instruction. */
+    OFPBIC_UNSUP_INST,         /* Switch or table does not support the
+                                  instruction. */
+    OFPBIC_BAD_TABLE_ID,       /* Invalid Table-ID specified. */
+    OFPBIC_UNSUP_METADATA,     /* Metadata value unsupported by datapath. */
+    OFPBIC_UNSUP_METADATA_MASK,/* Metadata mask value unsupported by
+                                  datapath. */
+    OFPBIC_UNSUP_EXP_INST,     /* Specific experimenter instruction
+                                  unsupported. */
+};
+
+/* ofp_error_msg 'code' values for OFPET_BAD_MATCH.  'data' contains at least
+ * the first 64 bytes of the failed request. */
+enum ofp_bad_match_code {
+    OFPBMC_BAD_TYPE,            /* Unsupported match type specified by the
+                                   match */
+    OFPBMC_BAD_LEN,             /* Length problem in match. */
+    OFPBMC_BAD_TAG,             /* Match uses an unsupported tag/encap. */
+    OFPBMC_BAD_DL_ADDR_MASK,    /* Unsupported datalink addr mask - switch does
+                                   not support arbitrary datalink address
+                                   mask. */
+    OFPBMC_BAD_NW_ADDR_MASK,    /* Unsupported network addr mask - switch does
+                                   not support arbitrary network address
+                                   mask. */
+    OFPBMC_BAD_WILDCARDS,       /* Unsupported wildcard specified in the
+                                   match. */
+    OFPBMC_BAD_FIELD,		/* Unsupported field in the match. */
+    OFPBMC_BAD_VALUE,		/* Unsupported value in a match field. */
 };
 
 /* ofp_error_msg 'code' values for OFPET_FLOW_MOD_FAILED.  'data' contains
@@ -952,20 +979,6 @@ enum ofp_flow_mod_failed_code {
     OFPFMFC_BAD_TIMEOUT,        /* Flow not added because of unsupported
                                    idle/hard timeout. */
     OFPFMFC_BAD_COMMAND,        /* Unsupported or unknown command. */
-    OFPFMFC_BAD_INSTRUCTION,    /* Unsupported instruction specified by the
-                                   flow mod. */
-    OFPFMFC_BAD_MATCH,          /* Unsupported match specified by the
-                                   flow mod. */
-    OFPFMFC_BAD_MATCH_TYPE,     /* Unsupported match type specified by the
-                                   flow mod */
-    OFPFMFC_BAD_TAG,            /* Instruction set uses an unsupported
-                                   tag/encap. */
-    OFPFMFC_BAD_DL_ADDR_MASK,   /* Unsupported datalink addr mask - switch does
-                                   not support arbitrary datalink address
-                                   mask. */
-    OFPFMFC_BAD_NW_ADDR_MASK,   /* Unsupported network addr mask - switch does
-                                   not support arbitrary network address
-                                   mask. */
 };
 
 /* ofp_error_msg 'code' values for OFPET_GROUP_MOD_FAILED.  'data' contains
@@ -1086,9 +1099,10 @@ struct ofp_stats_request {
     struct ofp_header header;
     uint16_t type;              /* One of the OFPST_* constants. */
     uint16_t flags;             /* OFPSF_REQ_* flags (none yet defined). */
+    uint8_t pad_statreq[4];
     uint8_t body[0];            /* Body of the request. */
 };
-OFP_ASSERT(sizeof(struct ofp_stats_request) == 12);
+OFP_ASSERT(sizeof(struct ofp_stats_request) == 16);
 
 enum ofp_stats_reply_flags {
     OFPSF_REPLY_MORE  = 1 << 0  /* More replies to follow. */
@@ -1098,9 +1112,10 @@ struct ofp_stats_reply {
     struct ofp_header header;
     uint16_t type;              /* One of the OFPST_* constants. */
     uint16_t flags;             /* OFPSF_REPLY_* flags. */
+    uint8_t pad_statrepl[4];
     uint8_t body[0];            /* Body of the reply. */
 };
-OFP_ASSERT(sizeof(struct ofp_stats_reply) == 12);
+OFP_ASSERT(sizeof(struct ofp_stats_reply) == 16);
 
 #define DESC_STR_LEN   256
 #define SERIAL_NUM_LEN 32
@@ -1119,14 +1134,14 @@ OFP_ASSERT(sizeof(struct ofp_desc_stats) == 1056);
 struct ofp_flow_stats_request {
     uint8_t table_id;         /* ID of table to read (from ofp_table_stats),
                                  0xff for all tables. */
-    uint8_t pad[3];           /* Align to 64 bits. */
+    uint8_t pad_fstat[3];           /* Align to 64 bits. */
     uint32_t out_port;        /* Require matching entries to include this
                                  as an output port.  A value of OFPP_ANY
                                  indicates no restriction. */
     uint32_t out_group;       /* Require matching entries to include this
                                  as an output group.  A value of OFPG_ANY
                                  indicates no restriction. */
-    uint8_t pad2[4];          /* Align to 64 bits. */
+    uint8_t pad_fstat2[4];          /* Align to 64 bits. */
     uint64_t cookie;          /* Require matching entries to contain this
                                  cookie value */
     uint64_t cookie_mask;     /* Mask used to restrict the cookie bits that
@@ -1140,7 +1155,7 @@ OFP_ASSERT(sizeof(struct ofp_flow_stats_request) == 120);
 struct ofp_flow_stats {
     uint16_t length;          /* Length of this entry. */
     uint8_t table_id;         /* ID of table flow came from. */
-    uint8_t pad;
+    uint8_t pad_fstats;
     uint32_t duration_sec;    /* Time flow has been alive in seconds. */
     uint32_t duration_nsec;   /* Time flow has been alive in nanoseconds beyond
                                  duration_sec. */
@@ -1148,7 +1163,7 @@ struct ofp_flow_stats {
                                  when this is not an exact-match entry. */
     uint16_t idle_timeout;    /* Number of seconds idle before expiration. */
     uint16_t hard_timeout;    /* Number of seconds before expiration. */
-    uint8_t pad2[6];          /* Align to 64-bits. */
+    uint8_t pad_fstats2[6];          /* Align to 64-bits. */
     uint64_t cookie;          /* Opaque controller-issued identifier. */
     uint64_t packet_count;    /* Number of packets in flow. */
     uint64_t byte_count;      /* Number of bytes in flow. */
@@ -1161,14 +1176,14 @@ OFP_ASSERT(sizeof(struct ofp_flow_stats) == 136);
 struct ofp_aggregate_stats_request {
     uint8_t table_id;         /* ID of table to read (from ofp_table_stats)
                                  0xff for all tables. */
-    uint8_t pad[3];           /* Align to 64 bits. */
+    uint8_t pad_astat[3];           /* Align to 64 bits. */
     uint32_t out_port;        /* Require matching entries to include this
                                  as an output port.  A value of OFPP_ANY
                                  indicates no restriction. */
     uint32_t out_group;       /* Require matching entries to include this
                                  as an output group.  A value of OFPG_ANY
                                  indicates no restriction. */
-    uint8_t pad2[4];          /* Align to 64 bits. */
+    uint8_t pad_astat2[4];          /* Align to 64 bits. */
     uint64_t cookie;          /* Require matching entries to contain this
                                  cookie value */
     uint64_t cookie_mask;     /* Mask used to restrict the cookie bits that
@@ -1183,7 +1198,7 @@ struct ofp_aggregate_stats_reply {
     uint64_t packet_count;    /* Number of packets in flows. */
     uint64_t byte_count;      /* Number of bytes in flows. */
     uint32_t flow_count;      /* Number of flows. */
-    uint8_t pad[4];           /* Align to 64 bits. */
+    uint8_t pad_astatr[4];           /* Align to 64 bits. */
 };
 OFP_ASSERT(sizeof(struct ofp_aggregate_stats_reply) == 24);
 
@@ -1211,7 +1226,7 @@ enum ofp_flow_match_fields {
 struct ofp_table_stats {
     uint8_t table_id;        /* Identifier of table.  Lower numbered tables
                                 are consulted first. */
-    uint8_t pad[7];          /* Align to 64-bits. */
+    uint8_t pad_tstat[7];          /* Align to 64-bits. */
     char name[OFP_MAX_TABLE_NAME_LEN];
     uint32_t wildcards;      /* Bitmap of OFPFMF_* wildcards that are
                                 supported by the table. */
@@ -1236,7 +1251,7 @@ struct ofp_port_stats_request {
                               * either for a single port (specified in
                               * port_no) or for all ports (if port_no ==
                               * OFPP_ANY). */
-    uint8_t pad[4];
+    uint8_t pad_pstatreq[4];
 };
 OFP_ASSERT(sizeof(struct ofp_port_stats_request) == 8);
 
@@ -1244,7 +1259,7 @@ OFP_ASSERT(sizeof(struct ofp_port_stats_request) == 8);
  * the field to all ones. */
 struct ofp_port_stats {
     uint32_t port_no;
-    uint8_t pad[4];          /* Align to 64-bits. */
+    uint8_t pad_pstats[4];          /* Align to 64-bits. */
     uint64_t rx_packets;     /* Number of received packets. */
     uint64_t tx_packets;     /* Number of transmitted packets. */
     uint64_t rx_bytes;       /* Number of received bytes. */
@@ -1269,7 +1284,7 @@ OFP_ASSERT(sizeof(struct ofp_port_stats) == 104);
 /* Body of OFPST_GROUP request. */
 struct ofp_group_stats_request {
     uint32_t group_id;       /* All groups if OFPG_ALL. */
-    uint8_t pad[4];          /* Align to 64 bits. */
+    uint8_t pad_gstatreq[4];          /* Align to 64 bits. */
 };
 OFP_ASSERT(sizeof(struct ofp_group_stats_request) == 8);
 
@@ -1283,11 +1298,11 @@ OFP_ASSERT(sizeof(struct ofp_bucket_counter) == 16);
 /* Body of reply to OFPST_GROUP request. */
 struct ofp_group_stats {
     uint16_t length;         /* Length of this entry. */
-    uint8_t pad[2];          /* Align to 64 bits. */
+    uint8_t pad_gstats[2];          /* Align to 64 bits. */
     uint32_t group_id;       /* Group identifier. */
     uint32_t ref_count;      /* Number of flows or groups that directly forward
                                 to this group. */
-    uint8_t pad2[4];         /* Align to 64 bits. */
+    uint8_t pad_gstats2[4];         /* Align to 64 bits. */
     uint64_t packet_count;   /* Number of packets processed by group. */
     uint64_t byte_count;     /* Number of bytes processed by group. */
     struct ofp_bucket_counter bucket_stats[0];
@@ -1298,7 +1313,7 @@ OFP_ASSERT(sizeof(struct ofp_group_stats) == 32);
 struct ofp_group_desc_stats {
     uint16_t length;              /* Length of this entry. */
     uint8_t type;                 /* One of OFPGT_*. */
-    uint8_t pad;                  /* Pad to 64 bits. */
+    uint8_t pad_gdstat;                  /* Pad to 64 bits. */
     uint32_t group_id;            /* Group identifier. */
     struct ofp_bucket buckets[0];
 };
@@ -1311,9 +1326,10 @@ struct ofp_experimenter_header {
                                  * - MSB 0: low-order bytes are IEEE OUI.
                                  * - MSB != 0: defined by OpenFlow
                                  *   consortium. */
+    uint8_t pad[4];
     /* Experimenter-defined arbitrary additional data. */
 };
-OFP_ASSERT(sizeof(struct ofp_experimenter_header) == 12);
+OFP_ASSERT(sizeof(struct ofp_experimenter_header) == 16);
 
 /* All ones is used to indicate all queues in a port (for stats retrieval). */
 #define OFPQ_ALL      0xffffffff
@@ -1358,8 +1374,9 @@ struct ofp_queue_get_config_request {
     struct ofp_header header;
     uint32_t port;         /* Port to be queried. Should refer
                               to a valid physical port (i.e. < OFPP_MAX) */
+    uint8_t pad[4];
 };
-OFP_ASSERT(sizeof(struct ofp_queue_get_config_request) == 12);
+OFP_ASSERT(sizeof(struct ofp_queue_get_config_request) == 16);
 
 /* Queue configuration for a given port. */
 struct ofp_queue_get_config_reply {

@@ -94,7 +94,8 @@ class FlowStats(basic.SimpleDataPlane):
         stat_req = message.flow_stats_request()
         stat_req.match = match
         stat_req.table_id = 0xff
-        stat_req.out_port = ofp.OFPP_ALL;
+        stat_req.out_port = ofp.OFPP_ANY;
+        stat_req.out_group = ofp.OFPG_ANY;
 
         testutils.do_barrier(self.controller)
         pa_logger.info("Sending stats request (before flow_mod insert)")

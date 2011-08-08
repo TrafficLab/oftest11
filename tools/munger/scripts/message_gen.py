@@ -306,6 +306,10 @@ def gen_message_wrapper(msg):
         _p2(parent + ".__init__(self)")
     _p2("self.header = ofp_header()")
     _p2("self.header.type = " + msg_name)
+    if msg == 'flow_mod':
+        _p2("self.buffer_id = 0xffffffff   #no buffer")
+        _p2("self.out_port = OFPP_ANY")
+        _p2("self.out_group = OFPG_ANY")
     if has_list:
         if list_type == None:
             _p2('self.' + list_var + ' = []')

@@ -70,6 +70,7 @@ class QueueConfig(basic.SimpleDataPlane):
     """
     def runTest(self):
         request = message.queue_get_config_request()
+        request.port = 1
         pa_logger.info("Querying switch for queue configuration")
         rv = self.controller.message_send(request)
         self.assertTrue(rv != -1, "Error querying queue config")
@@ -89,23 +90,24 @@ class QueueStats(basic.SimpleDataPlane):
         if not (sup_acts & 1<<ofp.OFPAT_SET_QUEUE):
             skip_message_emit(self, "Forward to queue test")
             return
-        
+        of_ports = pa_port_map.keys()
+        of_ports.sort()
+        self.assertTrue(len(of_ports) > 2, "Not enough ports for test")
+
         pkt = simple_tcp_packet(pktlen = 100)
         queue_act = action.action_set_queue()
         queue_act.queue_id = queue_id
-        flow_match_test(self, pa_port_map, pkt=pkt, apply_action_list = [queue_act])
+        flow_match_test_port_pair(parent=self, ing_port=of_ports[0], egr_port=of_ports[1], pkt=pkt, exp_pkt=pkt, apply_action_list = [queue_act])
+
 
         stat_req = message.queue_stats_request()
         stat_req.port_no = ofp.OFPP_ANY
         stat_req.queue_id = ofp.OFPQ_ALL
 
-        do_barrier(self.controller)
         pa_logger.info("Sending stats request")
-        rv = self.controller.message_send(stat_req)
-        self.assertTrue(rv != -1, "Error sending flow stat req")
         do_barrier(self.controller)
 
-        (response, raw) = self.controller.poll(ofp.OFPT_STATS_REPLY, ofp.OFPST_QUEUE)
+        (response, raw) = self.controller.transact(stat_req)
         self.assertTrue(response,"Got no queue stats reply")
-        queue_stats = response.stats
+        queue_stats = response.stats[0]
         self.assertTrue(queue_stats.tx_bytes == 100,"Queue Stats Incorrect")

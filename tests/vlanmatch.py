@@ -1193,12 +1193,9 @@ def vlan_none_tests(parent, vlan_id_mask=False, vlan_pcp_mask=False,
     exp_msg_code = 0 #NOT_EXPECTED
 
     if test_condition == 0:
-        vid = -1
+        vid = ofp.OFPVID_NONE
         pcp_match = pcp
-        if (vlan_id_mask == True) and (vlan_pcp_mask == False):
-            match_exp = False
-        else:
-            match_exp = True
+        match_exp = True
 
     elif test_condition == 1:
         vid = random.randint(0, 4095)
@@ -1439,8 +1436,8 @@ def vlan_outrange_tests(parent, vlan_id_mask=False, vlan_pcp_mask=False,
             else:
                 match_exp = False
                 exp_msg = ofp.OFPT_ERROR
-                exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-                exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+                exp_msg_type = ofp.OFPET_BAD_MATCH
+                exp_msg_code = ofp.OFPBMC_BAD_VALUE
         else:
             match_exp = False
             exp_msg = ofp.OFPT_FLOW_REMOVED
@@ -1458,8 +1455,8 @@ def vlan_outrange_tests(parent, vlan_id_mask=False, vlan_pcp_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     elif test_condition == 2:
         vid_match = vid + 4096  #out of range
@@ -1472,8 +1469,8 @@ def vlan_outrange_tests(parent, vlan_id_mask=False, vlan_pcp_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     elif test_condition == 3:
         vid_match = vid
@@ -1486,8 +1483,8 @@ def vlan_outrange_tests(parent, vlan_id_mask=False, vlan_pcp_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     elif test_condition == 4:
         vid_match = vid + 4096  #out of range
@@ -1500,8 +1497,8 @@ def vlan_outrange_tests(parent, vlan_id_mask=False, vlan_pcp_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     else:
         return

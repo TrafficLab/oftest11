@@ -31,6 +31,11 @@ class BlockPacketInByPort(basic.SimpleDataPlane):
                          config_logger)
         self.assertTrue(rv != -1, "Error sending port mod")
         config_logger.info("NO PKT IN test, port " + str(of_port))
+
+        # make sure config is changed before sending the packet
+        testutils.do_barrier(self.controller);
+
+
         pkt = testutils.simple_tcp_packet()
         self.dataplane.send(of_port, str(pkt))
         #@todo Check for unexpected messages?

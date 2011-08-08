@@ -34,6 +34,7 @@ def clear_switch(parent, port_list, logger):
         clear_port_config(parent, port, logger)
     initialize_table_config(parent.controller, logger)
     delete_all_flows(parent.controller, logger)
+    delete_all_groups(parent.controller, logger)
 
     return port_list
 
@@ -71,17 +72,33 @@ def delete_all_flows_one_table(ctrl, logger, table_id=0):
     """
     logger.info("Deleting all flows on table ID: " + str(table_id))
     msg = message.flow_mod()
+    msg.match.length = ofp.OFPMT_STANDARD_LENGTH
     msg.match.wildcards = ofp.OFPFW_ALL
     msg.match.dl_src_mask= [255,255,255,255,255,255]
     msg.match.dl_dst_mask= [255,255,255,255,255,255]
     msg.match.nw_src_mask = 0xffffffff
     msg.match.nw_dst_mask = 0xffffffff
-    msg.out_port = ofp.OFPP_ANY  # @todo CHECKME 
+    msg.out_port = ofp.OFPP_ANY
+    msg.out_group = ofp.OFPG_ANY
     msg.command = ofp.OFPFC_DELETE
     msg.buffer_id = 0xffffffff
     msg.table_id = table_id
     logger.debug(msg.show())
 
+    return ctrl.message_send(msg)
+
+def delete_all_groups(ctrl, logger):
+    """
+    Delete all groups on the switch
+    @param ctrl The controller object for the test
+    @param logger Logging object
+    """
+    
+    logger.info("Deleting all groups")
+    msg = message.group_mod()
+    msg.group_id = ofp.OFPG_ALL
+    msg.command = ofp.OFPGC_DELETE
+    logger.debug(msg.show())
     return ctrl.message_send(msg)
 
 def clear_port_config(parent, port, logger):
@@ -237,6 +254,14 @@ def receive_pkt_verify(parent, egr_port, exp_pkt):
     """
     (rcv_port, rcv_pkt, _) = parent.dataplane.poll(port_number=egr_port,
                                                           timeout=1)
+
+    if exp_pkt is None:
+        if rcv_pkt is None:
+            return None
+        else:
+            parent.logger.error("ERROR: Received unexpected packet from " + str(egr_port));
+            return rcv_pkt
+
     if rcv_pkt is None:
         parent.logger.error("ERROR: No packet received from " + str(egr_port))
 
@@ -245,6 +270,53 @@ def receive_pkt_verify(parent, egr_port, exp_pkt):
     parent.logger.debug("Packet len " + str(len(rcv_pkt)) + " in on " + 
                     str(rcv_port))
 
+    pkt_verify(parent, rcv_pkt, exp_pkt)
+
+def pkt_verify(parent, rcv_pkt, exp_pkt):
+    """
+    Zoltan: packet creation does not handle checksums. Therefore packet
+    verify will fail on every packet, where the switch manipulated the
+    IP header. As a temp. workaround the checksums of the received packet
+    is nulled.
+    """
+    eth_header_len = 14
+    eth_type_pos = 12
+    ip_header_len = 20
+    ip_type_pos = eth_header_len + 9 
+    ip_checksum_pos = eth_header_len + 10
+    tcp_checksum_pos = eth_header_len + ip_header_len + 16
+    udp_checksum_pos = eth_header_len + ip_header_len + 6
+
+    rcv_pkt_l = list(rcv_pkt)
+    
+    # assume single vlan tag maximum
+    if rcv_pkt[eth_type_pos] == chr(0x81) and rcv_pkt[eth_type_pos + 1] == chr(0x00):
+        vlan_offset = 4
+    else:
+        vlan_offset = 0
+
+    # is it IP ?
+    if rcv_pkt[eth_type_pos + vlan_offset] == chr(0x08) and rcv_pkt[eth_type_pos + vlan_offset + 1] == chr(0x00):
+        # null IP checksum
+        rcv_pkt_l[ip_checksum_pos + vlan_offset] = '\0'
+        rcv_pkt_l[ip_checksum_pos + vlan_offset + 1] = '\0'
+
+        # is it TCP?
+        if rcv_pkt[ip_type_pos + vlan_offset] == '\6':
+            # null TCP checksum
+            rcv_pkt_l[tcp_checksum_pos + vlan_offset] = '\0'
+            rcv_pkt_l[tcp_checksum_pos + vlan_offset + 1] = '\0'
+
+        # is it UPD?
+        if rcv_pkt[ip_type_pos + vlan_offset] == '\17':
+            # null UDP checksum
+            rcv_pkt_l[udp_checksum_pos + vlan_offset] = '\0'
+            rcv_pkt_l[udp_checksum_pos + vlan_offset + 1] = '\0'
+
+    rcv_pkt = "".join(rcv_pkt_l)
+    # Zoltan: end
+
+
     if str(exp_pkt) != str(rcv_pkt):
         parent.logger.error("ERROR: Packet match failed.")
         parent.logger.debug("Expected len " + str(len(exp_pkt)) + ": "
@@ -252,8 +324,10 @@ def receive_pkt_verify(parent, egr_port, exp_pkt):
         parent.logger.debug("Received len " + str(len(rcv_pkt)) + ": "
                         + str(rcv_pkt).encode('hex'))
     parent.assertEqual(str(exp_pkt), str(rcv_pkt),
-                       "Packet match error on port " + str(egr_port))
+                       "Packet match error")
     
+    return rcv_pkt
+
 def packetin_verify(parent, exp_pkt):
     """
     Receive packet_in and verify it matches an expected value
@@ -589,7 +663,7 @@ def flow_match_test(parent, port_map, match=None, wildcards=0,
                 return
 
 def flow_match_test_port_pair_vlan(parent, ing_port, egr_port, wildcards=0,
-                                   dl_vlan=-1, dl_vlan_pcp=0,
+                                   dl_vlan=ofp.OFPVID_NONE, dl_vlan_pcp=0,
                                    dl_vlan_type=ETHERTYPE_VLAN,
                                    dl_vlan_int=-1, dl_vlan_pcp_int=0,
                                    vid_match=ofp.OFPVID_NONE, pcp_match=0,
@@ -614,8 +688,8 @@ def flow_match_test_port_pair_vlan(parent, ing_port, egr_port, wildcards=0,
     len_w_vid = len + 4
 
     if pkt is None:
-        if dl_vlan >= 0:
-            if dl_vlan_int >= 0:
+        if dl_vlan >= 0 and dl_vlan != ofp.OFPVID_NONE:
+            if dl_vlan_int >= 0 and dl_vlan_int != ofp.OFPVID_NONE:
                 pkt = simple_tcp_packet(pktlen=len_w_vid,
                         dl_vlan_enable=True,
                         dl_vlan=dl_vlan_int,
@@ -634,10 +708,10 @@ def flow_match_test_port_pair_vlan(parent, ing_port, egr_port, wildcards=0,
                                     dl_vlan_enable=False)
 
     if exp_pkt is None:
-        if exp_vid >= 0:
+        if exp_vid >= 0 and exp_vid != ofp.OFPVID_NONE:
             if add_tag_exp:
-                if dl_vlan >= 0:
-                    if dl_vlan_int >= 0:
+                if dl_vlan >= 0 and dl_vlan != ofp.OFPVID_NONE:
+                    if dl_vlan_int >= 0 and dl_vlan_int != ofp.OFPVID_NONE:
                         exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
                                     dl_vlan_enable=True,
                                     dl_vlan=dl_vlan_int,
@@ -725,7 +799,7 @@ def flow_match_test_port_pair_vlan(parent, ing_port, egr_port, wildcards=0,
         parent.assertFalse(rcv_pkt is not None, "Packet on dataplane")
 
 def flow_match_test_vlan(parent, port_map, wildcards=0,
-                         dl_vlan=-1, dl_vlan_pcp=0, dl_vlan_type=ETHERTYPE_VLAN,
+                         dl_vlan=ofp.OFPVID_NONE, dl_vlan_pcp=0, dl_vlan_type=ETHERTYPE_VLAN,
                          dl_vlan_int=-1, dl_vlan_pcp_int=0,
                          vid_match=ofp.OFPVID_NONE, pcp_match=0,
                          exp_vid=-1, exp_pcp=0,
@@ -1339,6 +1413,7 @@ def flow_stats_get(parent, match=None):
     """
     request = message.flow_stats_request()
     request.out_port = ofp.OFPP_ANY
+    request.out_group = ofp.OFPG_ANY
     request.table_id = 0xff
     if match is None:
         match = match_all_generate()

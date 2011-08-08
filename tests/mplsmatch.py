@@ -1126,8 +1126,8 @@ def mpls_outrange_tests(parent, mpls_label_mask=False, mpls_tc_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     elif test_condition == 3:
         label_match = label
@@ -1140,8 +1140,8 @@ def mpls_outrange_tests(parent, mpls_label_mask=False, mpls_tc_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     elif test_condition == 4:
         label_match = label + 1048576  #out of range
@@ -1154,8 +1154,8 @@ def mpls_outrange_tests(parent, mpls_label_mask=False, mpls_tc_mask=False,
         else:
             match_exp = False
             exp_msg = ofp.OFPT_ERROR
-            exp_msg_type = ofp.OFPET_FLOW_MOD_FAILED
-            exp_msg_code = ofp.OFPFMFC_BAD_MATCH
+            exp_msg_type = ofp.OFPET_BAD_MATCH
+            exp_msg_code = ofp.OFPBMC_BAD_VALUE
 
     else:
         return

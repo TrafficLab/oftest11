@@ -660,6 +660,8 @@ def mpls_pop_two_tables_tests(parent, test_condition=0, match_exp=True):
     act = action.action_pop_mpls()
     if test_condition == 0:
         act.ethertype = ETHERTYPE_IP
+    else: #test_condition == 1
+        act.ethertype = ETHERTYPE_MPLS
     action_list_tbl0 = [act]
 
     # Create matching value for TBL1

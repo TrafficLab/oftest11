@@ -30,29 +30,37 @@ msg_type_subclassed = [
 # Maps from sub-types to classes
 stats_reply_to_class_map = {
     ofp.OFPST_DESC                      : message.desc_stats_reply,
-    ofp.OFPST_AGGREGATE                 : message.aggregate_stats_reply,
     ofp.OFPST_FLOW                      : message.flow_stats_reply,
+    ofp.OFPST_AGGREGATE                 : message.aggregate_stats_reply,
     ofp.OFPST_TABLE                     : message.table_stats_reply,
     ofp.OFPST_PORT                      : message.port_stats_reply,
-    ofp.OFPST_QUEUE                     : message.queue_stats_reply
+    ofp.OFPST_QUEUE                     : message.queue_stats_reply,
+    ofp.OFPST_GROUP                     : message.group_stats_reply,
+    ofp.OFPST_GROUP_DESC                : message.group_desc_stats_reply
+#    ofp.OFPST_EXPERIMENTER
 }
 
 stats_request_to_class_map = {
     ofp.OFPST_DESC                      : message.desc_stats_request,
-    ofp.OFPST_AGGREGATE                 : message.aggregate_stats_request,
     ofp.OFPST_FLOW                      : message.flow_stats_request,
+    ofp.OFPST_AGGREGATE                 : message.aggregate_stats_request,
     ofp.OFPST_TABLE                     : message.table_stats_request,
     ofp.OFPST_PORT                      : message.port_stats_request,
-    ofp.OFPST_QUEUE                     : message.queue_stats_request
+    ofp.OFPST_QUEUE                     : message.queue_stats_request,
+    ofp.OFPST_GROUP                     : message.group_stats_request,
+    ofp.OFPST_GROUP_DESC                : message.group_desc_stats_request
+#    ofp.OFPST_EXPERIMENTER
 }
 
 error_to_class_map = {
     ofp.OFPET_HELLO_FAILED              : message.hello_failed_error_msg,
     ofp.OFPET_BAD_REQUEST               : message.bad_request_error_msg,
     ofp.OFPET_BAD_ACTION                : message.bad_action_error_msg,
+    ofp.OFPET_BAD_INSTRUCTION           : message.bad_instruction_error_msg,
+    ofp.OFPET_BAD_MATCH                 : message.bad_match_error_msg,
     ofp.OFPET_FLOW_MOD_FAILED           : message.flow_mod_failed_error_msg,
+    ofp.OFPET_GROUP_MOD_FAILED          : message.group_mod_failed_error_msg,
     ofp.OFPET_PORT_MOD_FAILED           : message.port_mod_failed_error_msg,
-    ofp.OFPET_QUEUE_OP_FAILED           : message.queue_op_failed_error_msg,
     ofp.OFPET_TABLE_MOD_FAILED          : message.table_mod_failed_error_msg,
     ofp.OFPET_QUEUE_OP_FAILED           : message.queue_op_failed_error_msg,
     ofp.OFPET_SWITCH_CONFIG_FAILED      : message.switch_config_failed_error_msg
@@ -75,6 +83,7 @@ msg_type_to_class_map = {
     ofp.OFPT_PORT_STATUS                : message.port_status,
     ofp.OFPT_PACKET_OUT                 : message.packet_out,
     ofp.OFPT_FLOW_MOD                   : message.flow_mod,
+    ofp.OFPT_GROUP_MOD                  : message.group_mod,
     ofp.OFPT_PORT_MOD                   : message.port_mod,
     ofp.OFPT_TABLE_MOD                  : message.table_mod,
     ofp.OFPT_STATS_REQUEST              : message.stats_request,

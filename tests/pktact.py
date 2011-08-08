@@ -546,11 +546,15 @@ class AddVLANTag(BaseMatchCase):
         pkt = testutils.simple_tcp_packet(pktlen=len)
         exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid, dl_vlan_enable=True, 
                                     dl_vlan=new_vid)
+        push_act = action.action_push_vlan()
+        push_act.ethertype = 0x8100
+        
+
         vid_act = action.action_set_vlan_vid()
         vid_act.vlan_vid = new_vid
 
         testutils.flow_match_test(self, pa_port_map, pkt=pkt, 
-                        exp_pkt=exp_pkt, apply_action_list=[vid_act])
+                        exp_pkt=exp_pkt, apply_action_list=[push_act, vid_act])
 
 class PacketOnly(basic.DataPlaneOnly):
     """

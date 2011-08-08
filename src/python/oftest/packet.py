@@ -388,7 +388,7 @@ class Packet(object):
         else:
             self.vlan_tag_offset = None
             self.match.dl_vlan = ofp.OFPVID_NONE
-            self.match.dl_vlan_pcp = 9
+            self.match.dl_vlan_pcp = 0
             
         if l2_type in ETHERTYPES_MPLS:
             if self.bytes < (idx + 4):
@@ -399,7 +399,7 @@ class Packet(object):
             self.match.mpls_tc = (tag >> 9) & 0x0007
             idx += 4
         else:
-            self.match.mpls_label = ofp.OFPML_NONE
+            self.match.mpls_label = 0
             self.match.mpls_tc = 0
             
         self.match.dl_type = l2_type

@@ -252,6 +252,7 @@ class PacketOut(SimpleDataPlane):
         of_ports.sort()
         for dp_port in of_ports:
             msg = message.packet_out()
+            msg.in_port = ofp.OFPP_CONTROLLER
             msg.data = str(outpkt)
             act = action.action_output()
             act.port = dp_port
@@ -294,6 +295,7 @@ class FlowRemoveAll(SimpleProtocol):
         basic_logger.info("Sending flow request")
         request = message.flow_stats_request()
         request.out_port = ofp.OFPP_ANY
+        request.out_group = ofp.OFPG_ANY
         request.table_id = 0xff
         request.match.wildcards = 0 # ofp.OFPFW_ALL
         response, _ = self.controller.transact(request, timeout=2)

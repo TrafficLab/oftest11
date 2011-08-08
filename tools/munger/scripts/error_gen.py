@@ -79,6 +79,8 @@ error_types = [
     'hello_failed',
     'bad_request',
     'bad_action',
+    'bad_instruction',
+    'bad_match',
     'flow_mod_failed',
     'group_mod_failed',
     'port_mod_failed',

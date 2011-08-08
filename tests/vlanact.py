@@ -59,7 +59,7 @@ MODIFY_ACTION_VALUES =  [ofp.OFPAT_SET_VLAN_VID,
                          ofp.OFPAT_POP_VLAN]
 
 ETHERTYPE_VLAN = 0x8100
-ETHERTYPE_VLAN_QinQ = 0x88a8
+ETHERTYPE_VLAN_PBB = 0x88a8
 
 # Cache supported features to avoid transaction overhead
 cached_supported_actions = None
@@ -290,7 +290,7 @@ class VlanActTwoTagPop(VlanActNonTagPush0):
         self.num_tags = 2
         self.vid = random.randint(0,4093)
         self.pcp = random.randint(0,5)
-        self.vlan_type = ETHERTYPE_VLAN_QinQ
+        self.vlan_type = ETHERTYPE_VLAN_PBB
         self.vid_2nd = self.vid + 1
         self.pcp_2nd = self.pcp + 1
         self.vid_match = self.vid
@@ -641,7 +641,7 @@ def vlan_singlepush_act_tests(parent, test_condition=0):
 
     elif test_condition == 1:
         act = action.action_push_vlan()
-        act.ethertype = ETHERTYPE_VLAN_QinQ
+        act.ethertype = ETHERTYPE_VLAN_PBB
         match_exp = True
         add_tag_exp = True
         if parent.num_tags == 0:
@@ -656,7 +656,7 @@ def vlan_singlepush_act_tests(parent, test_condition=0):
 
     elif test_condition == 2:
         act = action.action_push_vlan()
-        act.ethertype = 0xaaa  #Other than 0x8100 and 0x88aa
+        act.ethertype = 0xaaa  #Other than 0x8100 and 0x88a8
         match_exp = False
         add_tag_exp = False
         exp_vid = 0

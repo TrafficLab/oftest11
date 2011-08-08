@@ -263,9 +263,9 @@ class WildcardDlDstMask(ExactDlSrcMask):
     def runTest(self):
         #@todo More test methods should be added
         for wc in WILDCARD_VALUES:
-            for idx in range(ofp.OFP_ETH_ALEN):
+            for idx in range(1): #ofp.OFP_ETH_ALEN):
                 dl_mask=[0, 0, 0, 0, 0, 0]
-                for bit_pos in range(BYTE_LEN):
+                for bit_pos in range(1): #BYTE_LEN):
                     dl_mask[idx] = 1 << bit_pos
                     self.dl_nw_mask['dl_dst'] = dl_mask
                     bitmask_test(self, pa_port_map,

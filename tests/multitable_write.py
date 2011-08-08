@@ -870,7 +870,7 @@ class MultiTableWriteActMpls6(pktact.BaseMatchCase):
 
         #Table 2
         act = action.action_push_mpls()
-        act.ethertype = ETHERTYPE_IP
+        act.ethertype = ETHERTYPE_MPLS
         act_list.append([act])
         next_avail.append(False)
         chk_expire.append(False)
@@ -1162,6 +1162,7 @@ class MultiTableWriteAct2Mpls1(pktact.BaseMatchCase):
 
         #Table 1
         act = action.action_pop_mpls()
+        act.ethertype = ETHERTYPE_MPLS
         act_list.append([act])
         next_avail.append(True)
         chk_expire.append(False)
@@ -1245,6 +1246,7 @@ class MultiTableWriteAct2Mpls2(pktact.BaseMatchCase):
 
         #Table 2
         act = action.action_pop_mpls()
+        act.ethertype = ETHERTYPE_MPLS
         act_list.append([act])
         next_avail.append(False)
         chk_expire.append(False)
@@ -1317,12 +1319,14 @@ class MultiTableWriteAct2Mpls3(pktact.BaseMatchCase):
 
         #Table 1
         act = action.action_push_mpls()
+        act.ethertype = ETHERTYPE_MPLS
         act_list.append([act])
         next_avail.append(True)
         chk_expire.append(False)
 
         #Table 2
         act = action.action_pop_mpls()
+        act.ethertype = ETHERTYPE_MPLS
         act_list.append([act])
         next_avail.append(False)
         chk_expire.append(False)
