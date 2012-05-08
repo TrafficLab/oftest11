@@ -15,20 +15,20 @@ for filters should include a callback or a counter
 """
 
 import sys
-#import os
-import socket
 import time
-import netutils
+import socket
+try:
+    import pcap
+except:
+    sys.exit("Need to install pypcap (apt-get install python-pypcap).")
 from threading import Thread
-#from threading import Lock
 from threading import Condition
-import select #@UnresolvedImport
+import select
 import logging
 from oft_assert import oft_assert
 
 ##@todo Find a better home for these identifiers (dataplane)
 RCV_SIZE_DEFAULT = 4096
-ETH_P_ALL = 0x03
 RCV_TIMEOUT = 10000
 
 class DataPlanePort(Thread):
@@ -65,87 +65,63 @@ class DataPlanePort(Thread):
         logname = "dp-" + interface_name
         self.logger = logging.getLogger(logname)
         try:
-            self.socket = self.interface_open(interface_name)
-        except StandardError:
-            self.logger.info("Could not open socket")
+            self.pcap = pcap.pcap(interface_name, RCV_SIZE_DEFAULT, True, RCV_TIMEOUT)
+ #           self.pcap.setnonblock()
+        except OSError, msg:
+            self.logger.info("Could not open interface: " + msg)
             sys.exit(1)
-        self.logger.info("Openned port monitor socket")
+        self.logger.info("Opened interface")
         self.parent = parent
         self.pkt_sync = self.parent.pkt_sync
         self.pkt_handler = None
 
-    def interface_open(self, interface_name):
-        """
-        Open a socket in a promiscuous mode for a data connection.
-        @param interface_name port name as a string such as 'eth1'
-        @retval s socket
-        """
-        s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW,
-                          socket.htons(ETH_P_ALL))
-        s.bind((interface_name, 0))
-        netutils.set_promisc(s, interface_name)
-        s.settimeout(RCV_TIMEOUT)
-        return s
+    def pcap_cb(self, ts, pkt):
+        self.logger.debug("Pkt len " + str(len(pkt)) +
+             " in at " + str(ts))
+
+        # Enqueue packet
+        self.pkt_sync.acquire()
+        if len(self.packets) >= self.max_pkts:
+            # Queue full, throw away oldest
+            self.packets.pop(0)
+            self.packets_discarded += 1
+        else:
+            self.parent.packets_pending += 1
+        # Check if parent is waiting on this (or any) port
+        if self.parent.want_pkt:
+            if (not self.parent.want_pkt_port or
+                    self.parent.want_pkt_port == self.port_number):
+                self.parent.got_pkt_port = self.port_number
+                self.parent.want_pkt = False
+#                    self.parent.pkt_sync.notify()
+        self.packets.append((pkt, ts))
+        self.packets_total += 1
+        self.pkt_sync.release()
 
     def run(self):
         """
         Activity function for class
         """
         self.running = True
-        self.socs = [self.socket]
-        error_warned = False # Have we warned about error?
+        self.socs = [self.pcap.fd]
         while self.running:
             try:
                 sel_in, sel_out, sel_err = \
                     select.select(self.socs, [], [], 1)
-            except (StandardError, socket.error):
-                print sys.exc_info()
-                self.logger.error("Select error, exiting")
+            except StandardError, socket.error:
+                self.logger.error("Select error: " + sys.exc_info())
                 break
-
+            
             if not self.running:
                 break
-
+            
             if (sel_in is None) or (len(sel_in) == 0):
                 continue
 
-            try:
-                rcvmsg = self.socket.recv(RCV_SIZE_DEFAULT)
-            except (StandardError, socket.error):
-                if not error_warned:
-                    self.logger.info("Socket error on recv")
-                    error_warned = True
-                continue
-
-            if len(rcvmsg) == 0:
-                self.logger.info("Zero len pkt rcvd")
-                self.kill()
-                break
-
-            rcvtime = time.clock()
-            self.logger.debug("Pkt len " + str(len(rcvmsg)) +
-                     " in at " + str(rcvtime))
-
-            # Enqueue packet
-            self.pkt_sync.acquire()
-            if len(self.packets) >= self.max_pkts:
-                # Queue full, throw away oldest
-                self.packets.pop(0)
-                self.packets_discarded += 1
-            else:
-                self.parent.packets_pending += 1
-            # Check if parent is waiting on this (or any) port
-            if self.parent.want_pkt:
-                if (not self.parent.want_pkt_port or
-                        self.parent.want_pkt_port == self.port_number):
-                    self.parent.got_pkt_port = self.port_number
-                    self.parent.want_pkt = False
-                    self.parent.pkt_sync.notify()
-            self.packets.append((rcvmsg, rcvtime))
-            self.packets_total += 1
-            self.pkt_sync.release()
+            self.pcap.dispatch(1, self.pcap_cb)
 
         self.logger.info("Thread exit ")
+        self.pcap.close()
 
     def kill(self):
         """
@@ -153,10 +129,7 @@ class DataPlanePort(Thread):
         """
         self.logger.debug("Port monitor kill")
         self.running = False
-        try:
-            self.socket.close()
-        except StandardError:
-            self.logger.info("Ignoring dataplane soc shutdown error")
+        
 
     def dequeue(self, use_lock=True):
         """
@@ -206,7 +179,14 @@ class DataPlanePort(Thread):
         @param queue_id The queue to send to (to be implemented)
         @retval The number of bytes sent
         """
-        return self.socket.send(packet)
+        self.logger.debug("Pkt len " + str(len(packet)) +
+             " out")
+        try:
+            ret = self.pcap.inject(packet, len(packet))
+        except OSError, msg:
+            self.logger.info("Could not inject packet: " + msg)
+            sys.exit(1)
+        return ret
 
 
     def register(self, pkt_handler):
@@ -222,7 +202,7 @@ class DataPlanePort(Thread):
         print prefix + "Name:          " + self.interface_name
         print prefix + "Pkts pending:  " + str(len(self.packets))
         print prefix + "Pkts total:    " + str(self.packets_total)
-        print prefix + "socket:        " + str(self.socket)
+        print prefix + "pcap:        " + str(self.pcap)
 
 
 class DataPlane:
@@ -368,7 +348,7 @@ class DataPlane:
 
     def kill(self, join_threads=True):
         """
-        Close all sockets for dataplane
+        Close all devices for dataplane
         @param join_threads If True call join on each thread
         """
         for port_number in self.port_list.keys():
