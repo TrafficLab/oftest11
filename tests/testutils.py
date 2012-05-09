@@ -1,6 +1,7 @@
 
 import sys
 import logging
+from cStringIO import StringIO
 #import types
 
 #import oftest.controller as controller
@@ -11,6 +12,15 @@ import oftest.action as action
 import oftest.parse as parse
 from oftest import instruction
 from oftest.packet import Packet
+
+try:
+    logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+    from scapy.all import *
+    load_contrib("mpls")
+    #TODO This should really be in scapy!
+    bind_layers(MPLS, MPLS, s=0)
+except:
+    sys.exit("Need to install scapy for packet parsing")
 
 global skipped_test_count
 skipped_test_count = 0
@@ -78,6 +88,7 @@ def delete_all_flows_one_table(ctrl, logger, table_id=0):
     msg.match.dl_dst_mask= [255,255,255,255,255,255]
     msg.match.nw_src_mask = 0xffffffff
     msg.match.nw_dst_mask = 0xffffffff
+    msg.match.metadata_mask = 0xffffffffffffffff
     msg.out_port = ofp.OFPP_ANY
     msg.out_group = ofp.OFPG_ANY
     msg.command = ofp.OFPFC_DELETE
@@ -112,56 +123,121 @@ def clear_port_config(parent, port, logger):
                          0, 0, logger)
     parent.assertEqual(rv, 0, "Failed to reset port config")
 
-def simple_tcp_packet(**args):
-    """
-    Return a simple dataplane TCP packet
+def simple_tcp_packet(dl_dst='00:01:02:03:04:05',
+                      dl_src='00:06:07:08:09:0a',
+                      vlan_tags=[],  # {type,vid,pcp,cfi}  TODO type
+                      mpls_tags=[],  # {type,label,tc,ttl} TODO type 
+                      ip_src='192.168.0.1',
+                      ip_dst='192.168.0.2',
+                      ip_tos=0,
+                      ip_ttl=64,
+                      tcp_sport=1234,
+                      tcp_dport=80,
+                      payload_len = 46):
+    pkt = Ether(dst=dl_dst, src=dl_src)
 
-    Supports a few parameters:
-    @param len Length of packet in bytes w/o CRC
-    @param dl_dst Destinatino MAC
-    @param dl_src Source MAC
-    @param dl_vlan_enable True if the packet is with vlan, False otherwise
-    @param dl_vlan_type Ether type for VLAN
-    @param dl_vlan VLAN ID
-    @param dl_vlan_pcp VLAN priority
-    @param ip_src IP source
-    @param ip_dst IP destination
-    @param ip_tos IP ToS
-    @param tcp_dport TCP destination port
-    @param tcp_sport TCP source port
+    vlans_num = 0
+    while len(vlan_tags):
+        tag = vlan_tags.pop(0)
+        dot1q = Dot1Q()
+        if 'vid' in tag:
+            dot1q.vlan = tag['vid']
+        if 'pcp' in tag:
+            dot1q.prio = tag['pcp']
+        if 'cfi' in tag:
+            dot1q.id = tag['cfi']
+        pkt = pkt / dot1q 
+        if 'type' in tag:
+            if vlans_num == 0:
+                pkt[Ether].setfieldval('type', tag['type'])
+            else:
+                pkt[Dot1Q:vlans_num].setfieldval('type', tag['type'])
+        vlans_num+=1
 
-    Generates a simple TCP request.  Users
-    shouldn't assume anything about this packet other than that
-    it is a valid ethernet/IP/TCP frame.
-    """
-    # Note Dot1Q.id is really CFI
+    mplss_num = 0
+    while len(mpls_tags):
+        tag = mpls_tags.pop(0)
+        mpls = MPLS()
+        if 'label' in tag:
+            mpls.label = tag['label']
+        if 'tc' in tag:
+            mpls.cos = tag['tc']
+        if 'ttl' in tag:
+            mpls.ttl = tag['ttl']
+        pkt = pkt / mpls
+        if 'type' in tag:
+            if mplss_num == 0:
+                if vlans_num == 0:
+                    pkt[Ether].setfieldval('type', tag['type'])
+                else:
+                    pkt[Dot1Q:vlans_num].setfieldval('type', tag['type'])
+        mplss_num+=1
 
-    return Packet().simple_tcp_packet(**args)
+    pkt = pkt / IP(src=ip_src, dst=ip_dst, tos=ip_tos, ttl=ip_ttl) \
+              / TCP(sport=tcp_sport, dport=tcp_dport)
+    
+    pkt = pkt / ("D" * payload_len)
 
-def simple_icmp_packet(*args):
-    """
-    Return a simple ICMP packet
+    return pkt
 
-    Supports a few parameters:
-    @param len Length of packet in bytes w/o CRC
-    @param dl_dst Destinatino MAC
-    @param dl_src Source MAC
-    @param dl_vlan_enable True if the packet is with vlan, False otherwise
-    @param dl_vlan_type Ether type for VLAN
-    @param dl_vlan VLAN ID
-    @param dl_vlan_pcp VLAN priority
-    @param ip_src IP source
-    @param ip_dst IP destination
-    @param ip_tos IP ToS
-    @param icmp_type ICMP type
-    @param icmp_code ICMP code
+def simple_icmp_packet(dl_dst='00:01:02:03:04:05',
+                       dl_src='00:06:07:08:09:0a',
+                       vlan_tags=[],  # {type,vid,pcp,cfi}  TODO type
+                       mpls_tags=[],  # {type,label,tc,ttl} TODO type 
+                       ip_src='192.168.0.1',
+                       ip_dst='192.168.0.2',
+                       ip_tos=0,
+                       ip_ttl=64,
+                       icmp_type=8, # ICMP_ECHO_REQUEST
+                       icmp_code=0,
+                       payload_len=0):
 
-    Generates a simple ICMP ECHO REQUEST.  Users
-    shouldn't assume anything about this packet other than that
-    it is a valid ethernet/ICMP frame.
-    """
+    #TODO simple_ip_packet
+    pkt = Ether(dst=dl_dst, src=dl_src)
 
-    return Packet().simple_icmp_packet(*args)
+    vlans_num = 0
+    while len(vlan_tags):
+        tag = vlan_tags.pop(0)
+        dot1q = Dot1Q()
+        if 'vid' in tag:
+            dot1q.vlan = tag['vid']
+        if 'pcp' in tag:
+            dot1q.prio = tag['pcp']
+        if 'cfi' in tag:
+            dot1q.id = tag['cfi']
+        pkt = pkt / dot1q 
+        if 'type' in tag:
+            if vlans_num == 0:
+                pkt[Ether].setfieldval('type', tag['type'])
+            else:
+                pkt[Dot1Q:vlans_num].setfieldval('type', tag['type'])
+        vlans_num+=1
+
+    mplss_num = 0
+    while len(mpls_tags):
+        tag = mpls_tags.pop(0)
+        mpls = MPLS()
+        if 'label' in tag:
+            mpls.label = tag['label']
+        if 'tc' in tag:
+            mpls.cos = tag['tc']
+        if 'ttl' in tag:
+            mpls.ttl = tag['ttl']
+        pkt = pkt / mpls
+        if 'type' in tag:
+            if mplss_num == 0:
+                if vlans_num == 0:
+                    pkt[Ether].setfieldval('type', tag['type'])
+                else:
+                    pkt[Dot1Q:vlans_num].setfieldval('type', tag['type'])
+        mplss_num+=1
+
+    pkt = pkt / IP(src=ip_src, dst=ip_dst, tos=ip_tos, ttl=ip_ttl) \
+              / ICMP(type=icmp_type, code=icmp_code)
+
+    pkt = pkt / ("D" * payload_len)
+
+    return pkt
 
 def do_barrier(ctrl):
     b = message.barrier_request()
@@ -246,6 +322,26 @@ def receive_pkt_check(dataplane, pkt, yes_ports, no_ports, assert_if, logger):
                              "Unexpected pkt on port " + str(ofport))
 
 
+def pkt_verify(parent, rcv_pkt, exp_pkt):
+    if str(exp_pkt) != str(rcv_pkt):
+        parent.logger.error("ERROR: Packet match failed.")
+        parent.logger.debug("Expected (" + str(len(exp_pkt)) + ")")
+        parent.logger.debug(str(exp_pkt).encode('hex'))
+        sys.stdout = tmpout = StringIO()
+        exp_pkt.show()
+        sys.stdout = sys.__stdout__
+        parent.logger.debug(tmpout.getvalue())
+        parent.logger.debug("Received (" + str(len(rcv_pkt)) + ")")
+        parent.logger.debug(str(rcv_pkt).encode('hex'))
+        sys.stdout = tmpout = StringIO()
+        Ether(rcv_pkt).show()
+        sys.stdout = sys.__stdout__
+        parent.logger.debug(tmpout.getvalue())
+    parent.assertEqual(str(exp_pkt), str(rcv_pkt),
+                       "Packet match error")
+    
+    return rcv_pkt
+
 def receive_pkt_verify(parent, egr_port, exp_pkt):
     """
     Receive a packet and verify it matches an expected value
@@ -270,63 +366,7 @@ def receive_pkt_verify(parent, egr_port, exp_pkt):
     parent.logger.debug("Packet len " + str(len(rcv_pkt)) + " in on " + 
                     str(rcv_port))
 
-    pkt_verify(parent, rcv_pkt, exp_pkt)
-
-def pkt_verify(parent, rcv_pkt, exp_pkt):
-    """
-    Zoltan: packet creation does not handle checksums. Therefore packet
-    verify will fail on every packet, where the switch manipulated the
-    IP header. As a temp. workaround the checksums of the received packet
-    is nulled.
-    """
-    eth_header_len = 14
-    eth_type_pos = 12
-    ip_header_len = 20
-    ip_type_pos = eth_header_len + 9 
-    ip_checksum_pos = eth_header_len + 10
-    tcp_checksum_pos = eth_header_len + ip_header_len + 16
-    udp_checksum_pos = eth_header_len + ip_header_len + 6
-
-    rcv_pkt_l = list(rcv_pkt)
-    
-    # assume single vlan tag maximum
-    if rcv_pkt[eth_type_pos] == chr(0x81) and rcv_pkt[eth_type_pos + 1] == chr(0x00):
-        vlan_offset = 4
-    else:
-        vlan_offset = 0
-
-    # is it IP ?
-    if rcv_pkt[eth_type_pos + vlan_offset] == chr(0x08) and rcv_pkt[eth_type_pos + vlan_offset + 1] == chr(0x00):
-        # null IP checksum
-        rcv_pkt_l[ip_checksum_pos + vlan_offset] = '\0'
-        rcv_pkt_l[ip_checksum_pos + vlan_offset + 1] = '\0'
-
-        # is it TCP?
-        if rcv_pkt[ip_type_pos + vlan_offset] == '\6':
-            # null TCP checksum
-            rcv_pkt_l[tcp_checksum_pos + vlan_offset] = '\0'
-            rcv_pkt_l[tcp_checksum_pos + vlan_offset + 1] = '\0'
-
-        # is it UPD?
-        if rcv_pkt[ip_type_pos + vlan_offset] == '\17':
-            # null UDP checksum
-            rcv_pkt_l[udp_checksum_pos + vlan_offset] = '\0'
-            rcv_pkt_l[udp_checksum_pos + vlan_offset + 1] = '\0'
-
-    rcv_pkt = "".join(rcv_pkt_l)
-    # Zoltan: end
-
-
-    if str(exp_pkt) != str(rcv_pkt):
-        parent.logger.error("ERROR: Packet match failed.")
-        parent.logger.debug("Expected len " + str(len(exp_pkt)) + ": "
-                        + str(exp_pkt).encode('hex'))
-        parent.logger.debug("Received len " + str(len(rcv_pkt)) + ": "
-                        + str(rcv_pkt).encode('hex'))
-    parent.assertEqual(str(exp_pkt), str(rcv_pkt),
-                       "Packet match error")
-    
-    return rcv_pkt
+    return pkt_verify(parent, rcv_pkt, exp_pkt)
 
 def packetin_verify(parent, exp_pkt):
     """
@@ -465,7 +505,7 @@ def flow_msg_create(parent, pkt, ing_port=0, instruction_list=None,
     if match is None:
         match = parse.packet_to_flow_match(pkt)
     parent.assertTrue(match is not None, "Flow match from pkt failed")
-    match.wildcards = wildcards & 0xfffffffff # mask out anything out of range
+    match.wildcards = wildcards & ofp.OFPFW_ALL # mask out anything out of range
     match.in_port = ing_port
 
     request = message.flow_mod()
@@ -586,7 +626,10 @@ def flow_match_test_port_pair(parent, ing_port, egr_port, match=None,
     parent.logger.debug("  WC: " + hex(wildcards) + " vlan: " + str(dl_vlan) +
                     " expire: " + str(check_expire))
     if pkt is None:
-        pkt = simple_tcp_packet(dl_vlan_enable=(dl_vlan >= 0), dl_vlan=dl_vlan)
+        if dl_vlan >= 0:
+            pkt = simple_tcp_packet(vlan_tags=[{'vid': dl_vlan}])
+        else:
+            pkt = simple_tcp_packet()
 
     match = parse.packet_to_flow_match(pkt)
     parent.assertTrue(match is not None, "Flow match from pkt failed")
@@ -684,83 +727,50 @@ def flow_match_test_port_pair_vlan(parent, ing_port, egr_port, wildcards=0,
     parent.logger.info("Pkt match test: " + str(ing_port) + " to " + str(egr_port))
     parent.logger.debug("  WC: " + hex(wildcards) + " vlan: " + str(dl_vlan) +
                     " expire: " + str(check_expire))
-    len = 100
-    len_w_vid = len + 4
-
     if pkt is None:
         if dl_vlan >= 0 and dl_vlan != ofp.OFPVID_NONE:
             if dl_vlan_int >= 0 and dl_vlan_int != ofp.OFPVID_NONE:
-                pkt = simple_tcp_packet(pktlen=len_w_vid,
-                        dl_vlan_enable=True,
-                        dl_vlan=dl_vlan_int,
-                        dl_vlan_pcp=dl_vlan_pcp_int)
-                pkt.push_vlan(dl_vlan_type)
-                pkt.set_vlan_vid(dl_vlan)
-                pkt.set_vlan_pcp(dl_vlan_pcp)
+                pkt = simple_tcp_packet(
+                        vlan_tags=[{'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp},
+                                   {'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
             else:
-                pkt = simple_tcp_packet(pktlen=len_w_vid,
-                        dl_vlan_enable=True,
-                        dl_vlan_type=dl_vlan_type,
-                        dl_vlan=dl_vlan,
-                        dl_vlan_pcp=dl_vlan_pcp)
+                pkt = simple_tcp_packet(
+                        vlan_tags=[{'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
         else:
-            pkt = simple_tcp_packet(pktlen=len,
-                                    dl_vlan_enable=False)
+            pkt = simple_tcp_packet()
 
     if exp_pkt is None:
         if exp_vid >= 0 and exp_vid != ofp.OFPVID_NONE:
             if add_tag_exp:
                 if dl_vlan >= 0 and dl_vlan != ofp.OFPVID_NONE:
                     if dl_vlan_int >= 0 and dl_vlan_int != ofp.OFPVID_NONE:
-                        exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
-                                    dl_vlan_enable=True,
-                                    dl_vlan=dl_vlan_int,
-                                    dl_vlan_pcp=dl_vlan_pcp_int)
-                        exp_pkt.push_vlan(dl_vlan_type)
-                        exp_pkt.set_vlan_vid(dl_vlan)
-                        exp_pkt.set_vlan_pcp(dl_vlan_pcp)
+                        exp_pkt = simple_tcp_packet(
+                                    vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp},
+                                               {'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp},
+                                               {'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
                     else:
-                        exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
-                                    dl_vlan_enable=True,
-                                    dl_vlan_type=dl_vlan_type,
-                                    dl_vlan=dl_vlan,
-                                    dl_vlan_pcp=dl_vlan_pcp)
-                    #Push one more tag in either case
-                    exp_pkt.push_vlan(exp_vlan_type)
-                    exp_pkt.set_vlan_vid(exp_vid)
-                    exp_pkt.set_vlan_pcp(exp_pcp)
+                        exp_pkt = simple_tcp_packet(
+                                    vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp},
+                                               {'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
                 else:
-                    exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
-                                dl_vlan_enable=True,
-                                dl_vlan_type=exp_vlan_type,
-                                dl_vlan=exp_vid,
-                                dl_vlan_pcp=exp_pcp)
+                    exp_pkt = simple_tcp_packet(
+                                vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp}])
             else:
                 if dl_vlan_int >= 0:
-                    exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
-                                dl_vlan_enable=True,
-                                dl_vlan=dl_vlan_int,
-                                dl_vlan_pcp=dl_vlan_pcp_int)
-                    exp_pkt.push_vlan(exp_vlan_type)
-                    exp_pkt.set_vlan_vid(exp_vid)
-                    exp_pkt.set_vlan_pcp(exp_pcp)
+                    exp_pkt = simple_tcp_packet(
+                                vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp},
+                                           {'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
 
                 else:
-                    exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
-                                dl_vlan_enable=True,
-                                dl_vlan_type=exp_vlan_type,
-                                dl_vlan=exp_vid,
-                                dl_vlan_pcp=exp_pcp)
+                    exp_pkt = simple_tcp_packet(
+                                vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp}])
         else:
             #subtract action
             if dl_vlan_int >= 0:
-                exp_pkt = simple_tcp_packet(pktlen=len_w_vid,
-                            dl_vlan_enable=True,
-                            dl_vlan=dl_vlan_int,
-                            dl_vlan_pcp=dl_vlan_pcp_int)
+                exp_pkt = simple_tcp_packet(
+                            vlan_tags=[{'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
             else:
-                exp_pkt = simple_tcp_packet(pktlen=len,
-                            dl_vlan_enable=False)
+                exp_pkt = simple_tcp_packet()
 
     match = parse.packet_to_flow_match(pkt)
     parent.assertTrue(match is not None, "Flow match from pkt failed")
@@ -921,17 +931,22 @@ def action_generate(parent, field_to_mod, mod_field_vals):
     elif field_to_mod == 'dl_src':
         act = action.action_set_dl_src()
         act.dl_addr = parse.parse_mac(mod_field_vals['dl_src'])
-    elif field_to_mod == 'dl_vlan_enable':
-        if not mod_field_vals['dl_vlan_enable']: # Strip VLAN tag
+    elif field_to_mod == 'vlan_tags':
+        if len(mod_field_vals['vlan_tags']):
             act = action.action_pop_vlan()
-        # Add VLAN tag is handled by dl_vlan field
-        # Will return None in this case
-    elif field_to_mod == 'dl_vlan':
-        act = action.action_set_vlan_vid()
-        act.vlan_vid = mod_field_vals['dl_vlan']
-    elif field_to_mod == 'dl_vlan_pcp':
-        act = action.action_set_vlan_pcp()
-        act.vlan_pcp = mod_field_vals['dl_vlan_pcp']
+        else:
+            pass
+#    elif field_to_mod == 'dl_vlan_enable':
+#        if not mod_field_vals['dl_vlan_enable']: # Strip VLAN tag
+#            act = action.action_pop_vlan()
+#        # Add VLAN tag is handled by dl_vlan field
+#        # Will return None in this case
+#    elif field_to_mod == 'dl_vlan':
+#        act = action.action_set_vlan_vid()
+#        act.vlan_vid = mod_field_vals['dl_vlan']
+#    elif field_to_mod == 'dl_vlan_pcp':
+#        act = action.action_set_vlan_pcp()
+#        act.vlan_pcp = mod_field_vals['dl_vlan_pcp']
     elif field_to_mod == 'ip_src':
         act = action.action_set_nw_src()
         act.nw_addr = parse.parse_ip(mod_field_vals['ip_src'])
@@ -971,12 +986,11 @@ def pkt_action_setup(parent, start_field_vals={}, mod_field_vals={},
 
 
     base_pkt_params = {}
-    base_pkt_params['pktlen'] = 100
     base_pkt_params['dl_dst'] = '00:DE:F0:12:34:56'
     base_pkt_params['dl_src'] = '00:23:45:67:89:AB'
-    base_pkt_params['dl_vlan_enable'] = False
-    base_pkt_params['dl_vlan'] = 2
-    base_pkt_params['dl_vlan_pcp'] = 0
+#    base_pkt_params['dl_vlan_enable'] = False
+#    base_pkt_params['dl_vlan'] = 2
+#    base_pkt_params['dl_vlan_pcp'] = 0
     base_pkt_params['ip_src'] = '192.168.0.1'
     base_pkt_params['ip_dst'] = '192.168.0.2'
     base_pkt_params['ip_tos'] = 0
@@ -986,12 +1000,11 @@ def pkt_action_setup(parent, start_field_vals={}, mod_field_vals={},
         base_pkt_params[keyname] = start_field_vals[keyname]
 
     mod_pkt_params = {}
-    mod_pkt_params['pktlen'] = 100
     mod_pkt_params['dl_dst'] = '00:21:0F:ED:CB:A9'
     mod_pkt_params['dl_src'] = '00:ED:CB:A9:87:65'
-    mod_pkt_params['dl_vlan_enable'] = False
-    mod_pkt_params['dl_vlan'] = 3
-    mod_pkt_params['dl_vlan_pcp'] = 7
+#    mod_pkt_params['dl_vlan_enable'] = False
+#    mod_pkt_params['dl_vlan'] = 3
+#    mod_pkt_params['dl_vlan_pcp'] = 7
     mod_pkt_params['ip_src'] = '10.20.30.40'
     mod_pkt_params['ip_dst'] = '50.60.70.80'
     mod_pkt_params['ip_tos'] = 0xf0
@@ -1051,6 +1064,7 @@ def wildcard_all_set(match):
     match.nw_src_mask = 0xffffffff
     match.dl_dst_mask = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     match.dl_src_mask = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+    match.metadata_mask = 0xffffffffffffffff
 
 def skip_message_emit(parent, s):
     """
@@ -1079,16 +1093,22 @@ def do_echo_request_reply_test(test,controller):
 
 def match_all_generate():
     match = ofp.ofp_match()
-    match.length = ofp.OFP_MATCH_BYTES
+    match.type = ofp.OFPMT_STANDARD
+    match.length = ofp.OFPMT_STANDARD_LENGTH
     match.wildcards = ofp.OFPFW_ALL
-    match.dl_src_mask = [255,255,255,255,255,255]
-    match.dl_dst_mask = [255,255,255,255,255,255]
-    match.nw_src_mask = int(0xffffffff)
-    match.nw_dst_mask = int(0xffffffff)
+    match.dl_dst = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    match.dl_dst_mask = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+    match.dl_src = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    match.dl_src_mask = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+    match.nw_src = 0x00000000
+    match.nw_src_mask = 0xffffffff
+    match.nw_dst = 0x00000000
+    match.nw_dst_mask = 0xffffffff
+    match.metadata = 0x0000000000000000
+    match.metadata_mask = 0xffffffffffffffff
     return match
 
-from oftest.packet import MplsTag
-def simple_tcp_packet_w_mpls(pktlen=100,
+def simple_tcp_packet_w_mpls(
                       dl_dst='00:01:02:03:04:05',
                       dl_src='00:06:07:08:09:0a',
                       mpls_type=0x8847,
@@ -1138,31 +1158,26 @@ def simple_tcp_packet_w_mpls(pktlen=100,
     it is a valid ethernet/IP/TCP frame.
     """
     
-    mpls_tags = ()
+    mpls_tags = []
     
     if mpls_label_ext >= 0:
-        tag = MplsTag(mpls_label_ext, mpls_tc_ext, mpls_ttl_ext)
-        mpls_tags += (tag,)
+        mpls_tags.append({'type': mpls_type, 'label': mpls_label_ext, 'tc': mpls_tc_ext, 'ttl': mpls_ttl_ext})
         
     if mpls_label >= 0:
-        tag = MplsTag(mpls_label, mpls_tc, mpls_ttl)
-        mpls_tags += (tag,)
+        mpls_tags.append({'type': mpls_type, 'label': mpls_label, 'tc': mpls_tc, 'ttl': mpls_ttl})
         
     if mpls_label_int >= 0:
-        tag = MplsTag(mpls_label_int, mpls_tc_int, mpls_ttl_int)
-        mpls_tags += (tag,)
+        mpls_tags.append({'type': mpls_type, 'label': mpls_label_int, 'tc': mpls_tc_int, 'ttl': mpls_ttl_int})
     
-    pkt = Packet().simple_tcp_packet(pktlen=pktlen,
-                                     dl_dst=dl_dst,
-                                     dl_src=dl_src,
-                                     mpls_type=mpls_type,
-                                     mpls_tags=mpls_tags,
-                                     ip_src=ip_src,
-                                     ip_dst=ip_dst,
-                                     ip_tos=ip_tos,  
-                                     ip_ttl=ip_ttl,
-                                     tcp_sport=tcp_sport,
-                                     tcp_dport=tcp_dport)
+    pkt = simple_tcp_packet(dl_dst=dl_dst,
+                            dl_src=dl_src,
+                            mpls_tags=mpls_tags,
+                            ip_src=ip_src,
+                            ip_dst=ip_dst,
+                            ip_tos=ip_tos,  
+                            ip_ttl=ip_ttl,
+                            tcp_sport=tcp_sport,
+                            tcp_dport=tcp_dport)
     return pkt
     
 def flow_match_test_port_pair_mpls(parent, ing_port, egr_port, wildcards=0,
@@ -1194,20 +1209,10 @@ def flow_match_test_port_pair_mpls(parent, ing_port, egr_port, wildcards=0,
     parent.logger.info("Pkt match test: " + str(ing_port) + " to " + str(egr_port))
     parent.logger.debug("  WC: " + hex(wildcards) + " MPLS: " +
                     str(mpls_label) + " expire: " + str(check_expire))
-    len = 100
-    len_w_shim = len + 4
-    len_w_2shim = len_w_shim + 4
-    len_w_3shim = len_w_2shim + 4
+
     if pkt is None:
-        if mpls_label >= 0:
-            if mpls_label_int >= 0:
-                pktlen=len_w_2shim
-            else:
-                pktlen=len_w_shim
-        else:
-            pktlen=len
-        pkt = simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                       mpls_type=mpls_type,
+
+        pkt = simple_tcp_packet_w_mpls(mpls_type=mpls_type,
                                        mpls_label=mpls_label,
                                        mpls_tc=mpls_tc,
                                        mpls_ttl=mpls_ttl,
@@ -1217,26 +1222,8 @@ def flow_match_test_port_pair_mpls(parent, ing_port, egr_port, wildcards=0,
                                        ip_ttl=ip_ttl)
 
     if exp_pkt is None:
-        if exp_mpls_label >= 0:
-            if add_tag_exp:
-                if mpls_label_int >= 0:
-                    exp_pktlen=len_w_3shim
-                else:
-                    exp_pktlen=len_w_2shim
-            else:
-                if mpls_label_int >= 0:
-                    exp_pktlen=len_w_2shim
-                else:
-                    exp_pktlen=len_w_shim
-        else:
-            #subtract action
-            if mpls_label_int >= 0:
-                exp_pktlen=len_w_shim
-            else:
-                exp_pktlen=len
-
         if add_tag_exp:
-            exp_pkt = simple_tcp_packet_w_mpls(pktlen=exp_pktlen,
+            exp_pkt = simple_tcp_packet_w_mpls(
                                            mpls_type=exp_mpls_type,
                                            mpls_label_ext=exp_mpls_label,
                                            mpls_tc_ext=exp_mpls_tc,
@@ -1250,14 +1237,14 @@ def flow_match_test_port_pair_mpls(parent, ing_port, egr_port, wildcards=0,
                                            ip_ttl=exp_ip_ttl)
         else:
             if (exp_mpls_label < 0) and (mpls_label_int >= 0):
-                exp_pkt = simple_tcp_packet_w_mpls(pktlen=exp_pktlen,
+                exp_pkt = simple_tcp_packet_w_mpls(
                                            mpls_type=mpls_type,
                                            mpls_label=mpls_label_int,
                                            mpls_tc=mpls_tc_int,
                                            mpls_ttl=exp_mpls_ttl_int,
                                            ip_ttl=exp_ip_ttl)
             else:
-                exp_pkt = simple_tcp_packet_w_mpls(pktlen=exp_pktlen,
+                exp_pkt = simple_tcp_packet_w_mpls(
                                            mpls_type=exp_mpls_type,
                                            mpls_label=exp_mpls_label,
                                            mpls_tc=exp_mpls_tc,

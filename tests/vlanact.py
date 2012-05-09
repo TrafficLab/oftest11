@@ -630,11 +630,15 @@ def vlan_singlepush_act_tests(parent, test_condition=0):
         match_exp = True
         add_tag_exp = True
         if parent.num_tags == 0:
-            exp_vid = 0
+            exp_vid = 1
             exp_pcp = 0
+            act2 = action.action_set_vlan_vid()
+            act2.vlan_vid = 1
         else:
             exp_vid = parent.vid
             exp_pcp = parent.pcp
+            act2 = action.action_set_vlan_vid()
+            act2.vlan_vid = parent.vid
         exp_msg = ofp.OFPT_FLOW_REMOVED
         exp_msg_type = 0 #NOT_EXPECTED
         exp_msg_code = 0 #NOT_EXPECTED
@@ -645,11 +649,15 @@ def vlan_singlepush_act_tests(parent, test_condition=0):
         match_exp = True
         add_tag_exp = True
         if parent.num_tags == 0:
-            exp_vid = 0
+            exp_vid = 1
             exp_pcp = 0
+            act2 = action.action_set_vlan_vid()
+            act2.vlan_vid = 1
         else:
             exp_vid = parent.vid
             exp_pcp = parent.pcp
+            act2 = action.action_set_vlan_vid()
+            act2.vlan_vid = parent.vid
         exp_msg = ofp.OFPT_FLOW_REMOVED
         exp_msg_type = 0 #NOT_EXPECTED
         exp_msg_code = 0 #NOT_EXPECTED
@@ -659,8 +667,10 @@ def vlan_singlepush_act_tests(parent, test_condition=0):
         act.ethertype = 0xaaa  #Other than 0x8100 and 0x88a8
         match_exp = False
         add_tag_exp = False
-        exp_vid = 0
+        exp_vid = 1
         exp_pcp = 0
+        act2 = action.action_set_vlan_vid()
+        act2.vlan_vid = 1
         exp_msg = ofp.OFPT_ERROR
         exp_msg_type = ofp.OFPET_BAD_ACTION
         exp_msg_code = ofp.OFPBAC_BAD_ARGUMENT
@@ -668,7 +678,8 @@ def vlan_singlepush_act_tests(parent, test_condition=0):
     else:
         return
 
-    action_list=[act]
+    #NOTE need to set a VLAN vid value, as vid=0 is stripped by the system
+    action_list=[act, act2]
 
     testutils.flow_match_test_vlan(parent, pa_port_map,
                     wildcards=0,

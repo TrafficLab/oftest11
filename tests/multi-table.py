@@ -36,6 +36,10 @@ def test_set_init(config):
 
 class TwoTable1(basic.SimpleDataPlane):
     """
+    NOTE Zoltan: This test is not correct. It assumes that the action set of the packet will be executed
+    when no match is found. However in that case the table config is executed, which will send the packet
+    in a packet-in.
+
     Simple two table test
 
     Add two flow entries:
@@ -90,6 +94,7 @@ class TwoTable1(basic.SimpleDataPlane):
         match.length = ofp.OFPMT_STANDARD_LENGTH
         testutils.wildcard_all_set(match)
         match.wildcards -= ofp.OFPFW_DL_TYPE
+        match.wildcards -= ofp.OFPFW_NW_PROTO
         match.wildcards -= ofp.OFPFW_TP_SRC
         match.dl_type = 0x800
         match.nw_proto = 6 # TCP
@@ -226,6 +231,10 @@ def write_goto_output(parent, set_id, next_id, outport, ip_src=MT_TEST_IP,
 
 class MultiTableGoto(basic.SimpleDataPlane):
     """
+    NOTE Zoltan: This test is not correct. It assumes that the action set of the packet will be executed
+    when no match is found. However in that case the table config is executed, which will send the packet
+    in a packet-in.
+
     Simple three table test for "goto"
 
     Lots of negative tests are not checked
@@ -259,6 +268,7 @@ class MultiTableGoto(basic.SimpleDataPlane):
         match.length = ofp.OFPMT_STANDARD_LENGTH
         testutils.wildcard_all_set(match)
         match.wildcards -= ofp.OFPFW_DL_TYPE
+        match.wildcards -= ofp.OFPFW_NW_PROTO
         match.wildcards -= ofp.OFPFW_TP_SRC
         match.dl_type = MT_TEST_DL_TYPE
         match.nw_proto = 6 #TCP
@@ -779,12 +789,9 @@ class TwoTableApplyActGenericSimple(basic.SimpleDataPlane):
         basic.SimpleDataPlane.__init__(self)
 
         self.base_pkt_params = {}
-        self.base_pkt_params['pktlen'] = 100
         self.base_pkt_params['dl_dst'] = '00:DE:F0:12:34:56'
         self.base_pkt_params['dl_src'] = '00:23:45:67:89:AB'
-        self.base_pkt_params['dl_vlan_enable'] = True
-        self.base_pkt_params['dl_vlan'] = 2
-        self.base_pkt_params['dl_vlan_pcp'] = 0
+#TODO        self.base_pkt_params['vlan_tags'] = [{'vid': 2, 'pcp': 0}]
         self.base_pkt_params['ip_src'] = '192.168.0.1'
         self.base_pkt_params['ip_dst'] = '192.168.0.2'
         self.base_pkt_params['ip_tos'] = 0
@@ -792,15 +799,12 @@ class TwoTableApplyActGenericSimple(basic.SimpleDataPlane):
         self.base_pkt_params['tcp_dport'] = 80
 
         self.start_pkt_params = self.base_pkt_params.copy()
-        del self.start_pkt_params['dl_vlan_enable']
-        del self.start_pkt_params['pktlen']
+#TODO        self.start_pkt_params['vlan_tags'] = []
 
         self.mod_pkt_params = {}
-        self.mod_pkt_params['pktlen'] = 100
         self.mod_pkt_params['dl_dst'] = '00:21:0F:ED:CB:A9'
         self.mod_pkt_params['dl_src'] = '00:ED:CB:A9:87:65'
-        self.mod_pkt_params['dl_vlan'] = 3
-        self.mod_pkt_params['dl_vlan_pcp'] = 7
+#TODO        self.mod_pkt_params['vlan_tags'] = [{'vid': 3, 'pcp': 7}]
         self.mod_pkt_params['ip_src'] = '10.20.30.40'
         self.mod_pkt_params['ip_dst'] = '50.60.70.80'
         self.mod_pkt_params['ip_tos'] = 0xf0
@@ -859,10 +863,10 @@ class TwoTableApplyActGenericSimple(basic.SimpleDataPlane):
             #@todo We shouldn't expect the order of coming response..
             if check_expire_tbl0:
                 flow_removed_verify(self, request0, pkt_count=1,
-                                    byte_count=pktlen)
+                                    byte_count=len(pkt))
             if check_expire_tbl1:
                 flow_removed_verify(self, request1, pkt_count=1,
-                                    byte_count=exp_pktlen)
+                                    byte_count=len(exp_pkt))
             # Receive and verify pkt
             testutils.receive_pkt_verify(self, egr_port, exp_pkt)
 
@@ -939,9 +943,9 @@ class TwoTableApplyActGeneric2Mod(TwoTableApplyActGenericSimple):
                 #@todo We shouldn't expect the order of coming response..
                 if check_expire_tbl0:
                     flow_removed_verify(self, request0, pkt_count=1,
-                                        byte_count=pktlen)
+                                        byte_count=len(pkt))
                 if check_expire_tbl1:
                     flow_removed_verify(self, request1, pkt_count=1,
-                                        byte_count=exp_pktlen)
+                                        byte_count=len(exp_pkt))
                 # Receive and verify pkt
                 testutils.receive_pkt_verify(self, egr_port, exp_pkt)

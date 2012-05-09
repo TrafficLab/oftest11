@@ -1269,6 +1269,7 @@ class GroupFlowSelect(GroupTest):
         aggr_stat_req.match.dl_dst_mask= [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
         aggr_stat_req.match.nw_src_mask = 0xffffffff
         aggr_stat_req.match.nw_dst_mask = 0xffffffff
+        aggr_stat_req.match.metadata_mask = 0xffffffffffffffff
         aggr_stat_req.table_id = 0xff
         aggr_stat_req.out_port = ofp.OFPP_ANY
         aggr_stat_req.out_group = 2
@@ -1345,6 +1346,7 @@ class GroupFlowSelectAll(GroupTest):
         aggr_stat_req.match.dl_dst_mask= [255,255,255,255,255,255]
         aggr_stat_req.match.nw_src_mask = 0xffffffff
         aggr_stat_req.match.nw_dst_mask = 0xffffffff
+        aggr_stat_req.match.metadata_mask = 0xffffffffffffffff
         aggr_stat_req.table_id = 0xff
         aggr_stat_req.out_port = ofp.OFPP_ANY
         aggr_stat_req.out_group = ofp.OFPG_ANY

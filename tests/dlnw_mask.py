@@ -387,8 +387,10 @@ def bitmask_test(parent, port_map, wildcards=0,
     @param check_expire Check for flow expiration message
     @param max_test If > 0 no more than this number of tests are executed.
     """
-    pkt = testutils.simple_tcp_packet(dl_vlan_enable=(dl_vlan >= 0),
-                                      dl_vlan=dl_vlan)
+    if dl_vlan >= 0:
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': dl_vlan}])
+    else:
+        pkt = testutils.simple_tcp_packet()
     match = parse.packet_to_flow_match(pkt)
     parent.assertTrue(match is not None, "Flow match from pkt failed")
     if mask is not None:

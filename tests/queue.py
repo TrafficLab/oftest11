@@ -59,7 +59,7 @@ class QueueForward(BaseMatchCase):
             skip_message_emit(self, "Forward to queue test")
             return
         
-        pkt = simple_tcp_packet(pktlen = 100)
+        pkt = simple_tcp_packet()
         queue_act = action.action_set_queue()
         queue_act.queue_id = queue_id
         flow_match_test(self, pa_port_map, pkt=pkt, apply_action_list = [queue_act])
@@ -94,7 +94,7 @@ class QueueStats(basic.SimpleDataPlane):
         of_ports.sort()
         self.assertTrue(len(of_ports) > 2, "Not enough ports for test")
 
-        pkt = simple_tcp_packet(pktlen = 100)
+        pkt = simple_tcp_packet()
         queue_act = action.action_set_queue()
         queue_act.queue_id = queue_id
         flow_match_test_port_pair(parent=self, ing_port=of_ports[0], egr_port=of_ports[1], pkt=pkt, exp_pkt=pkt, apply_action_list = [queue_act])
@@ -109,5 +109,7 @@ class QueueStats(basic.SimpleDataPlane):
 
         (response, raw) = self.controller.transact(stat_req)
         self.assertTrue(response,"Got no queue stats reply")
+        self.assertTrue(len(response.stats) > 0, 
+                         "Expected stats reply")
         queue_stats = response.stats[0]
         self.assertTrue(queue_stats.tx_bytes == 100,"Queue Stats Incorrect")

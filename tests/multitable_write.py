@@ -151,15 +151,12 @@ class MultiTableWriteActNontag2(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 100
-        pkt = testutils.simple_tcp_packet(pktlen=pktlen)
+        pkt = testutils.simple_tcp_packet()
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
         dl_vlan = 0xa5a # no specific meaning
-        exp_pkt = testutils.simple_tcp_packet(pktlen=pktlen+4,
-                                              dl_vlan_enable=True,
-                                              dl_vlan=dl_vlan)
+        exp_pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': dl_vlan}])
 
         # Create parameters for each table
         act_list = []
@@ -213,18 +210,14 @@ class MultiTableWriteActVlan1(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         dl_vlan = 0xa5a # no specific meaning
         dl_vlan_pcp=3
-        pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                          dl_vlan_enable=True,
-                                          dl_vlan=dl_vlan,
-                                          dl_vlan_pcp=dl_vlan_pcp)
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet(pktlen=pktlen-4)
+        exp_pkt = testutils.simple_tcp_packet()
 
         # Create parameters for each table
         act_list = []
@@ -271,19 +264,14 @@ class MultiTableWriteActVlan2(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         dl_vlan = 0xa5a # no specific meaning
         dl_vlan_pcp=3
-        pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                          dl_vlan_enable=True,
-                                          dl_vlan=dl_vlan,
-                                          dl_vlan_pcp=dl_vlan_pcp)
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                              dl_vlan_enable=True)
+        exp_pkt = testutils.simple_tcp_packet(vlan_tags=[{}])
 
         # Create parameters for each table
         act_list = []
@@ -300,7 +288,9 @@ class MultiTableWriteActVlan2(pktact.BaseMatchCase):
         #Table 1
         act = action.action_push_vlan()
         act.ethertype = ETHERTYPE_VLAN
-        act_list.append([act])
+        act2 = action.action_set_vlan_vid()
+        act2.vlan_vid = 1
+        act_list.append([act, act2])
         next_avail.append(True)
         chk_expire.append(False)
 
@@ -337,25 +327,17 @@ class MultiTableWriteActVlan3(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         dl_vlan = 0xa5a # no specific meaning
         dl_vlan_pcp=3
-        pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                          dl_vlan_enable=True,
-                                          dl_vlan=dl_vlan,
-                                          dl_vlan_pcp=dl_vlan_pcp)
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
         new_dl_vlan = 0x18F
-        exp_pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                              dl_vlan_enable=True,
-                                              dl_vlan=dl_vlan,
-                                              dl_vlan_pcp=dl_vlan_pcp)
-        exp_pkt.push_vlan(ETHERTYPE_VLAN)
-        exp_pkt.set_vlan_vid(new_dl_vlan)
-
+        exp_pkt = testutils.simple_tcp_packet(vlan_tags=[{'type': ETHERTYPE_VLAN, 'vid': new_dl_vlan, 'pcp': dl_vlan_pcp},
+                                                         {'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
+ 
         # Create parameters for each table
         act_list = []
         next_avail = []
@@ -409,25 +391,16 @@ class MultiTableWriteAct2Vlan1(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         dl_vlan = 0xa5a # no specific meaning
         dl_vlan_pcp=3
         outer_dl_vlan = 0x18F
-        pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                          dl_vlan_enable=True,
-                                          dl_vlan=dl_vlan,
-                                          dl_vlan_pcp=dl_vlan_pcp)
-        pkt.push_vlan(ETHERTYPE_VLAN)
-        pkt.set_vlan_vid(outer_dl_vlan)
-
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'type' : ETHERTYPE_VLAN, 'vid': outer_dl_vlan},
+                                                     {'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
         new_dl_vlan = 0xfed
-        exp_pkt = testutils.simple_tcp_packet(pktlen=pktlen,
-                                              dl_vlan_enable=True,
-                                              dl_vlan=new_dl_vlan,
-                                              dl_vlan_pcp=dl_vlan_pcp)
+        exp_pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': new_dl_vlan, 'pcp': dl_vlan_pcp}])
 
         # Create parameters for each table
         act_list = []
@@ -480,19 +453,17 @@ class MultiTableWriteActMpls1(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen-4)
+        exp_pkt = testutils.simple_tcp_packet_w_mpls()
 
         # Create parameters for each table
         act_list = []
@@ -540,12 +511,10 @@ class MultiTableWriteActMpls2(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
@@ -553,7 +522,7 @@ class MultiTableWriteActMpls2(pktact.BaseMatchCase):
         wildcards = 0
 
         new_mpls_label = 0x5a0fa
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen+4,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                       mpls_label_ext=new_mpls_label,
                                       mpls_tc_ext=mpls_tc,
                                       mpls_ttl_ext=mpls_ttl,
@@ -614,12 +583,10 @@ class MultiTableWriteActMpls3(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
@@ -627,8 +594,7 @@ class MultiTableWriteActMpls3(pktact.BaseMatchCase):
         wildcards = 0
 
         new_mpls_ttl = mpls_ttl+1
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                     mpls_label=mpls_label,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                      mpls_tc=mpls_tc,
                                                      mpls_ttl=new_mpls_ttl)
 
@@ -684,20 +650,17 @@ class MultiTableWriteActMpls4(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen-4,
-                                                     ip_ttl=mpls_ttl)
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(ip_ttl=mpls_ttl)
 
         # Create parameters for each table
         act_list = []
@@ -752,20 +715,17 @@ class MultiTableWriteActMpls5(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                     mpls_label=0,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=0,
                                                      mpls_tc=0,
                                                      mpls_ttl=mpls_ttl,
                                                      ip_ttl=mpls_ttl)
@@ -830,19 +790,17 @@ class MultiTableWriteActMpls6(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen+4,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                       mpls_label_ext=mpls_label,
                                       mpls_tc_ext=mpls_tc,
                                       mpls_ttl_ext=mpls_ttl,
@@ -903,20 +861,17 @@ class MultiTableWriteActMpls7(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                     mpls_label=mpls_label,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                      mpls_tc=mpls_tc,
                                                      mpls_ttl=mpls_ttl-1,
                                                      ip_ttl=mpls_ttl)
@@ -974,12 +929,10 @@ class MultiTableWriteActMpls8(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
@@ -987,8 +940,7 @@ class MultiTableWriteActMpls8(pktact.BaseMatchCase):
         wildcards = 0
 
         new_mpls_ttl = mpls_ttl+1
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                     mpls_label=mpls_label,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                      mpls_tc=mpls_tc,
                                                      mpls_ttl=new_mpls_ttl,
                                                      ip_ttl=mpls_ttl)
@@ -1052,20 +1004,17 @@ class MultiTableWriteActMpls9(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 104
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
-                                                 mpls_label=mpls_label,
+        pkt = testutils.simple_tcp_packet_w_mpls(mpls_label=mpls_label,
                                                  mpls_tc=mpls_tc,
                                                  mpls_ttl=mpls_ttl)
 
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen-4,
-                                                     ip_ttl=mpls_ttl-1)
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(ip_ttl=mpls_ttl-1)
 
         # Create parameters for each table
         act_list = []
@@ -1125,14 +1074,13 @@ class MultiTableWriteAct2Mpls1(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 108
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
         mpls_label_int = 0x5a0fa
         mpls_tc_int = 4
         mpls_ttl_int = 193
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        pkt = testutils.simple_tcp_packet_w_mpls(
                                   mpls_label=mpls_label,
                                   mpls_tc=mpls_tc,
                                   mpls_ttl=mpls_ttl,
@@ -1143,7 +1091,7 @@ class MultiTableWriteAct2Mpls1(pktact.BaseMatchCase):
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen-4,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                       mpls_label=mpls_label_int,
                                       mpls_tc=mpls_tc_int,
                                       mpls_ttl=mpls_ttl)
@@ -1200,7 +1148,6 @@ class MultiTableWriteAct2Mpls2(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 108
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
@@ -1208,7 +1155,7 @@ class MultiTableWriteAct2Mpls2(pktact.BaseMatchCase):
         mpls_tc_int = 4
         mpls_ttl_int = 193
         ip_ttl = 63
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        pkt = testutils.simple_tcp_packet_w_mpls(
                                   mpls_label=mpls_label,
                                   mpls_tc=mpls_tc,
                                   mpls_ttl=mpls_ttl,
@@ -1220,7 +1167,7 @@ class MultiTableWriteAct2Mpls2(pktact.BaseMatchCase):
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen-4,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                       mpls_label=mpls_label_int,
                                       mpls_tc=mpls_tc_int,
                                       mpls_ttl=ip_ttl,
@@ -1278,7 +1225,6 @@ class MultiTableWriteAct2Mpls3(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 108
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
@@ -1286,7 +1232,7 @@ class MultiTableWriteAct2Mpls3(pktact.BaseMatchCase):
         mpls_tc_int = 4
         mpls_ttl_int = 193
 
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        pkt = testutils.simple_tcp_packet_w_mpls(
                                   mpls_label=mpls_label,
                                   mpls_tc=mpls_tc,
                                   mpls_ttl=mpls_ttl,
@@ -1297,7 +1243,7 @@ class MultiTableWriteAct2Mpls3(pktact.BaseMatchCase):
         match = parse.packet_to_flow_match(pkt)
         wildcards = 0
 
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                       mpls_label=mpls_label_int,
                                       mpls_tc=mpls_tc_int,
                                       mpls_ttl=mpls_ttl_int,
@@ -1358,14 +1304,13 @@ class MultiTableWriteAct2Mpls4(pktact.BaseMatchCase):
         ing_port = of_ports[0]
         egr_port = of_ports[1]
 
-        pktlen = 108
         mpls_label = 0xa5f05 # no specific meaning
         mpls_tc = 5
         mpls_ttl = 129
         mpls_label_int = 0x5a0fa
         mpls_tc_int = 4
         mpls_ttl_int = 193
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        pkt = testutils.simple_tcp_packet_w_mpls(
                                   mpls_label=mpls_label,
                                   mpls_tc=mpls_tc,
                                   mpls_ttl=mpls_ttl,
@@ -1377,7 +1322,7 @@ class MultiTableWriteAct2Mpls4(pktact.BaseMatchCase):
         wildcards = 0
 
         new_mpls_ttl = mpls_ttl+1
-        exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                       mpls_label=mpls_label,
                                       mpls_tc=mpls_tc,
                                       mpls_ttl=new_mpls_ttl,
@@ -1491,6 +1436,6 @@ def write_action_test_multi_tables(parent, ing_port, egr_port,
     for table_id in range(num_table_used):
         if chk_expire[table_id]:
             flow_removed_verify(parent, request_list[table_id], pkt_count=1,
-                            byte_count=pktlen)
+                            byte_count=len(pkt))
 
     testutils.receive_pkt_verify(parent, egr_port, exp_pkt)

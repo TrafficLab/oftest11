@@ -541,11 +541,9 @@ class AddVLANTag(BaseMatchCase):
             testutils.skip_message_emit(self, "Add VLAN tag test")
             return
 
-        len = 100
-        len_w_vid = 104
-        pkt = testutils.simple_tcp_packet(pktlen=len)
-        exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid, dl_vlan_enable=True, 
-                                    dl_vlan=new_vid)
+        pkt = testutils.simple_tcp_packet()
+        exp_pkt = testutils.simple_tcp_packet(
+                                    vlan_tags=[{'vid': new_vid}])
         push_act = action.action_push_vlan()
         push_act.ethertype = 0x8100
         
@@ -575,7 +573,7 @@ class PacketOnlyTagged(basic.DataPlaneOnly):
     """
     def runTest(self):
         vid = testutils.test_param_get(self.config, 'vid', default=TEST_VID_DEFAULT)
-        pkt = testutils.simple_tcp_packet(dl_vlan_enable=True, dl_vlan=vid)
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': vid}])
         of_ports = pa_port_map.keys()
         of_ports.sort()
         ing_port = of_ports[0]
@@ -598,8 +596,8 @@ class ModifyVID(BaseMatchCase):
             testutils.skip_message_emit(self, "Modify VLAN tag test")
             return
 
-        pkt = testutils.simple_tcp_packet(dl_vlan_enable=True, dl_vlan=old_vid)
-        exp_pkt = testutils.simple_tcp_packet(dl_vlan_enable=True, dl_vlan=new_vid)
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': old_vid}])
+        exp_pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': new_vid}])
         vid_act = action.action_set_vlan_vid()
         vid_act.vlan_vid = new_vid
 
@@ -617,11 +615,8 @@ class StripVLANTag(BaseMatchCase):
             testutils.skip_message_emit(self, "Strip VLAN tag test")
             return
 
-        len_w_vid = 104
-        len = 100
-        pkt = testutils.simple_tcp_packet(pktlen=len_w_vid, dl_vlan_enable=True, 
-                                dl_vlan=old_vid)
-        exp_pkt = testutils.simple_tcp_packet(pktlen=len)
+        pkt = testutils.simple_tcp_packet(vlan_tags=[{'vid': old_vid}])
+        exp_pkt = testutils.simple_tcp_packet()
         vid_act = action.action_pop_vlan()
 
         testutils.flow_match_test(self, pa_port_map, pkt=pkt, exp_pkt=exp_pkt,

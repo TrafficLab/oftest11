@@ -772,19 +772,7 @@ def flow_match_test_port_pair_mpls_two_tables(parent, ing_port, egr_port,
                 "one or more of MPLS actions : " + i)
             return
 
-    len = 100
-    len_w_shim = len + 4
-    len_w_2shim = len_w_shim + 4
-    len_w_3shim = len_w_2shim + 4
-    if pkt is None:
-        if mpls_label >= 0:
-            if mpls_label_int >= 0:
-                pktlen=len_w_2shim
-            else:
-                pktlen=len_w_shim
-        else:
-            pktlen=len
-        pkt = testutils.simple_tcp_packet_w_mpls(pktlen=pktlen,
+        pkt = testutils.simple_tcp_packet_w_mpls(
                                        mpls_type=mpls_type,
                                        mpls_label=mpls_label,
                                        mpls_tc=mpls_tc,
@@ -795,26 +783,8 @@ def flow_match_test_port_pair_mpls_two_tables(parent, ing_port, egr_port,
                                        ip_ttl=ip_ttl)
 
     if exp_pkt is None:
-        if exp_mpls_label >= 0:
-            if add_tag_exp:
-                if mpls_label_int >= 0:
-                    exp_pktlen=len_w_3shim
-                else:
-                    exp_pktlen=len_w_2shim
-            else:
-                if mpls_label_int >= 0:
-                    exp_pktlen=len_w_2shim
-                else:
-                    exp_pktlen=len_w_shim
-        else:
-            #subtract action
-            if mpls_label_int >= 0:
-                exp_pktlen=len_w_shim
-            else:
-                exp_pktlen=len
-
         if add_tag_exp:
-            exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=exp_pktlen,
+            exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                            mpls_type=exp_mpls_type,
                                            mpls_label_ext=exp_mpls_label,
                                            mpls_tc_ext=exp_mpls_tc,
@@ -828,14 +798,14 @@ def flow_match_test_port_pair_mpls_two_tables(parent, ing_port, egr_port,
                                            ip_ttl=exp_ip_ttl)
         else:
             if (exp_mpls_label < 0) and (mpls_label_int >= 0):
-                exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=exp_pktlen,
+                exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                            mpls_type=mpls_type,
                                            mpls_label=mpls_label_int,
                                            mpls_tc=mpls_tc_int,
                                            mpls_ttl=exp_mpls_ttl_int,
                                            ip_ttl=exp_ip_ttl)
             else:
-                exp_pkt = testutils.simple_tcp_packet_w_mpls(pktlen=exp_pktlen,
+                exp_pkt = testutils.simple_tcp_packet_w_mpls(
                                            mpls_type=exp_mpls_type,
                                            mpls_label=exp_mpls_label,
                                            mpls_tc=exp_mpls_tc,

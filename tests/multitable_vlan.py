@@ -582,83 +582,51 @@ def flow_match_test_port_pair_vlan_two_tables(parent, ing_port, egr_port,
     parent.logger.debug("  WC: " + hex(wildcards) + " vlan: " + str(dl_vlan) +
                     " expire_table0: " + str(check_expire_tbl0) +
                     " expire_table1: " + str(check_expire_tbl1))
-    len = 100
-    len_w_vid = len + 4
 
     if pkt is None:
         if dl_vlan >= 0:
             if dl_vlan_int >= 0:
-                pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                        dl_vlan_enable=True,
-                        dl_vlan=dl_vlan_int,
-                        dl_vlan_pcp=dl_vlan_pcp_int)
-                pkt.push_vlan(dl_vlan_type)
-                pkt.set_vlan_vid(dl_vlan)
-                pkt.set_vlan_pcp(dl_vlan_pcp)
+                pkt = testutils.simple_tcp_packet(
+                        vlan_tags=[{'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp},
+                                   {'type': dl_vlan_type, 'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
             else:
-                pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                        dl_vlan_enable=True,
-                        dl_vlan_type=dl_vlan_type,
-                        dl_vlan=dl_vlan,
-                        dl_vlan_pcp=dl_vlan_pcp)
+                pkt = testutils.simple_tcp_packet(
+                        vlan_tags=[{'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
         else:
-            pkt = testutils.simple_tcp_packet(pktlen=len,
-                                    dl_vlan_enable=False)
+            pkt = testutils.simple_tcp_packet()
 
     if exp_pkt is None:
         if exp_vid >= 0:
             if add_tag_exp:
                 if dl_vlan >= 0:
                     if dl_vlan_int >= 0:
-                        exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                                    dl_vlan_enable=True,
-                                    dl_vlan=dl_vlan_int,
-                                    dl_vlan_pcp=dl_vlan_pcp_int)
-                        exp_pkt.push_vlan(dl_vlan_type)
-                        exp_pkt.set_vlan_vid(dl_vlan)
-                        exp_pkt.set_vlan_pcp(dl_vlan_pcp)
+                        exp_pkt = testutils.simple_tcp_packet(
+                        vlan_tags=[{'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp},
+                                   {'type': dl_vlan_type, 'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
                     else:
-                        exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                                    dl_vlan_enable=True,
-                                    dl_vlan_type=dl_vlan_type,
-                                    dl_vlan=dl_vlan,
-                                    dl_vlan_pcp=dl_vlan_pcp)
-                    #Push one more tag in either case
-                    exp_pkt.push_vlan(exp_vlan_type)
-                    exp_pkt.set_vlan_vid(exp_vid)
-                    exp_pkt.set_vlan_pcp(exp_pcp)
+                        #Push one more tag in either case
+                        exp_pkt = testutils.simple_tcp_packet(
+                                        vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp},
+                                                   {'type': dl_vlan_type, 'vid': dl_vlan, 'pcp': dl_vlan_pcp}])
                 else:
-                    exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                                dl_vlan_enable=True,
-                                dl_vlan_type=exp_vlan_type,
-                                dl_vlan=exp_vid,
-                                dl_vlan_pcp=exp_pcp)
+                    exp_pkt = testutils.simple_tcp_packet(
+                                vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp}])
             else:
                 if dl_vlan_int >= 0:
-                    exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                                dl_vlan_enable=True,
-                                dl_vlan=dl_vlan_int,
-                                dl_vlan_pcp=dl_vlan_pcp_int)
-                    exp_pkt.push_vlan(exp_vlan_type)
-                    exp_pkt.set_vlan_vid(exp_vid)
-                    exp_pkt.set_vlan_pcp(exp_pcp)
+                    exp_pkt = testutils.simple_tcp_packet(
+                                vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp},
+                                           {'type': dl_vlan_type, 'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
 
                 else:
-                    exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                                dl_vlan_enable=True,
-                                dl_vlan_type=exp_vlan_type,
-                                dl_vlan=exp_vid,
-                                dl_vlan_pcp=exp_pcp)
+                    exp_pkt = testutils.simple_tcp_packet(
+                                vlan_tags=[{'type': exp_vlan_type, 'vid': exp_vid, 'pcp': exp_pcp}])
         else:
             #subtract action
             if dl_vlan_int >= 0:
-                exp_pkt = testutils.simple_tcp_packet(pktlen=len_w_vid,
-                            dl_vlan_enable=True,
-                            dl_vlan=dl_vlan_int,
-                            dl_vlan_pcp=dl_vlan_pcp_int)
+                exp_pkt = testutils.simple_tcp_packet(
+                            vlan_tags=[{'type': dl_vlan_type, 'vid': dl_vlan_int, 'pcp': dl_vlan_pcp_int}])
             else:
-                exp_pkt = testutils.simple_tcp_packet(pktlen=len,
-                            dl_vlan_enable=False)
+                exp_pkt = testutils.simple_tcp_packet()
 
     match = parse.packet_to_flow_match(pkt)
     parent.assertTrue(match is not None, "Flow match from pkt failed")
@@ -703,7 +671,7 @@ def flow_match_test_port_pair_vlan_two_tables(parent, ing_port, egr_port,
         if check_expire_tbl0:
             #@todo Not all HW supports both pkt and byte counters
             #@todo We shouldn't expect the order of coming response..
-            flow_removed_verify(parent, request0, pkt_count=1, byte_count=pktlen)
+            flow_removed_verify(parent, request0, pkt_count=1, byte_count=len(exp_pkt))
     else:
         if exp_msg_tbl0 is ofp.OFPT_FLOW_REMOVED:
             if check_expire_tbl0:
@@ -717,7 +685,7 @@ def flow_match_test_port_pair_vlan_two_tables(parent, ing_port, egr_port,
         if check_expire_tbl1:
             #@todo Not all HW supports both pkt and byte counters
             #@todo We shouldn't expect the order of coming response..
-            flow_removed_verify(parent, request1, pkt_count=1, byte_count=exp_pktlen)
+            flow_removed_verify(parent, request1, pkt_count=1, byte_count=len(exp_pkt))
     else:
         if exp_msg_tbl1 is ofp.OFPT_FLOW_REMOVED:
             if check_expire_tbl1:

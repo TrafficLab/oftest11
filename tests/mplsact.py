@@ -1088,6 +1088,7 @@ def mpls_push_act_tests(parent):
                     mpls_tc=parent.tc,
                     mpls_label_int=parent.label_int,
                     mpls_tc_int=parent.tc_int,
+                    ip_ttl=parent.ip_ttl,
                     label_match=parent.label_match,
                     tc_match=parent.tc_match,
                     dl_type_match=parent.dl_type_match,
